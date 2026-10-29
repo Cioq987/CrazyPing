@@ -30,7 +30,7 @@ import (
 var webFiles embed.FS
 
 const (
-	AppVersion = "1.0.0"
+	AppVersion = "1.0.1"
 	GitHubRepo = "Cioq987/CrazyPing"
 	wgExePath  = `C:\Program Files\WireGuard\wireguard.exe`
 )

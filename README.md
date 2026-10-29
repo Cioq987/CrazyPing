@@ -70,7 +70,7 @@ CrazyPing intègre un système d'enrôlement automatique à haute fluidité :
 ## 🔄 Module d'Auto-Mise à Jour en Direct (Live Auto-Updater)
 
 L'application intègre un moteur de mise à jour autonome connecté directement aux Releases GitHub :
-- **Vérification Asynchrone** : 2.5 secondes après l'ouverture, l'application vérifie discrètement si une version plus récente que la version locale (`v1.0.0`) a été publiée.
+- **Vérification Asynchrone** : 2.5 secondes après l'ouverture, l'application vérifie discrètement si une version plus récente que la version locale a été publiée.
 - **Bannière Interactive Néon** : Si une mise à jour est disponible, une notification dynamique apparaît avec le nom et les nouveautés de la version.
 - **Installation 1-Clic Silencieuse** : Le clic sur *« Mettre à jour maintenant »* télécharge le setup dans `%TEMP%`, déclenche l'installateur en mode silencieux (`/SILENT`), ferme l'ancienne version et relance la nouvelle en moins de 3 secondes.
 
@@ -109,7 +109,7 @@ Pour approfondir les détails d'implémentation et de sécurité, consultez les 
 
 ### 1. Installation du Client
 Téléchargez l'installateur autonome depuis la dernière [**Release GitHub**](https://github.com/Cioq987/CrazyPing/releases) :
-👉 [**CrazyPing-Setup.exe**](https://github.com/Cioq987/CrazyPing/releases/download/v1.0.0/CrazyPing-Setup.exe)
+👉 [**CrazyPing-Setup.exe**](https://github.com/Cioq987/CrazyPing/releases/download/v1.0.1/CrazyPing-Setup.exe)
 
 L'installateur configure automatiquement l'exécutable, les raccourcis et vérifie la présence du pilote Wintun / WireGuard.
 
