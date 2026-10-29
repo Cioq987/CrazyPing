@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto/ecdh"
+	"crypto/rand"
 	"embed"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -135,6 +138,162 @@ func stringsTrimSuffix(s, suffix string) string {
 	return s
 }
 
+type ClientIdentity struct {
+	Alias       string `json:"alias"`
+	PrivateKey  string `json:"privateKey,omitempty"`
+	PublicKey   string `json:"publicKey,omitempty"`
+	AllocatedIP string `json:"allocatedIp"`
+	IsEnrolled  bool   `json:"isEnrolled"`
+}
+
+func loadClientIdentity(exeDir string, isAdmin bool) *ClientIdentity {
+	path := filepath.Join(exeDir, "client_identity.json")
+	if data, err := os.ReadFile(path); err == nil {
+		var ident ClientIdentity
+		if json.Unmarshal(data, &ident) == nil && ident.IsEnrolled {
+			return &ident
+		}
+	}
+	if isAdmin {
+		return &ClientIdentity{
+			Alias:       "Superviseur",
+			AllocatedIP: "10.10.0.2",
+			IsEnrolled:  true,
+		}
+	}
+	return &ClientIdentity{
+		IsEnrolled: false,
+	}
+}
+
+func saveClientIdentity(exeDir string, ident *ClientIdentity) error {
+	path := filepath.Join(exeDir, "client_identity.json")
+	data, err := json.MarshalIndent(ident, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0600)
+}
+
+func writeLocalGameConfigs(exeDir, privKey, allocatedIP string) error {
+	fortniteTemplate := `[Interface]
+PrivateKey = %s
+Address = %s/32
+MTU = 1380
+
+[Peer]
+PublicKey = 5dRNSNB9hA8qxA00mYSXU97lFG/s3yyNGwUyhKKw8Cw=
+Endpoint = 146.235.218.190:51820
+AllowedIPs = 52.88.0.0/15, 52.10.0.0/15, 52.24.0.0/14, 52.32.0.0/11, 54.68.0.0/14, 54.148.0.0/15, 54.184.0.0/13, 54.200.0.0/13, 54.212.0.0/14, 54.218.0.0/15, 54.244.0.0/15, 34.208.0.0/12, 35.160.0.0/13, 44.224.0.0/11, 199.255.40.0/22, 199.192.112.0/22, 205.185.192.0/20
+PersistentKeepalive = 15
+`
+	mistfallTemplate := `[Interface]
+PrivateKey = %s
+Address = %s/32
+MTU = 1380
+
+[Peer]
+PublicKey = 5dRNSNB9hA8qxA00mYSXU97lFG/s3yyNGwUyhKKw8Cw=
+Endpoint = 146.235.218.190:51820
+AllowedIPs = 155.133.224.0/19, 162.254.192.0/19, 101.32.0.0/16, 129.226.0.0/16, 43.128.0.0/16, 52.0.0.0/11, 54.184.0.0/13, 54.200.0.0/13, 34.208.0.0/12, 35.160.0.0/13
+PersistentKeepalive = 15
+`
+	valorantTemplate := `[Interface]
+PrivateKey = %s
+Address = %s/32
+MTU = 1380
+
+[Peer]
+PublicKey = 5dRNSNB9hA8qxA00mYSXU97lFG/s3yyNGwUyhKKw8Cw=
+Endpoint = 146.235.218.190:51820
+AllowedIPs = 104.160.128.0/19, 162.249.72.0/22, 192.207.0.0/17, 66.23.16.0/20, 64.224.0.0/18
+PersistentKeepalive = 15
+`
+	_ = os.WriteFile(filepath.Join(exeDir, "CrazyPing-Fortnite.local.conf"), []byte(fmt.Sprintf(fortniteTemplate, privKey, allocatedIP)), 0600)
+	_ = os.WriteFile(filepath.Join(exeDir, "CrazyPing-MistfallHunter.local.conf"), []byte(fmt.Sprintf(mistfallTemplate, privKey, allocatedIP)), 0600)
+	_ = os.WriteFile(filepath.Join(exeDir, "CrazyPing-Valorant.local.conf"), []byte(fmt.Sprintf(valorantTemplate, privKey, allocatedIP)), 0600)
+	return nil
+}
+
+func performAutoEnroll(relayHost string, relayPort int, alias, exeDir string) (*ClientIdentity, error) {
+	k, err := ecdh.X25519().GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("erreur génération clé Curve25519: %w", err)
+	}
+	privKeyB64 := base64.StdEncoding.EncodeToString(k.Bytes())
+	pubKeyB64 := base64.StdEncoding.EncodeToString(k.PublicKey().Bytes())
+
+	hostname, _ := os.Hostname()
+	reqPayload, _ := json.Marshal(map[string]interface{}{
+		"action":   "auto_enroll",
+		"pubKey":   pubKeyB64,
+		"alias":    alias,
+		"hostname": hostname,
+	})
+
+	rAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost, relayPort))
+	if err != nil {
+		return nil, err
+	}
+	conn, err := net.DialUDP("udp", nil, rAddr)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+
+	pkt := &protocol.Packet{
+		Type:      protocol.TypeEnrollReq,
+		Seq:       1,
+		Timestamp: time.Now().UnixNano(),
+		Payload:   reqPayload,
+	}
+	if _, err := conn.Write(pkt.Encode()); err != nil {
+		return nil, err
+	}
+
+	buf := make([]byte, 4096)
+	n, err := conn.Read(buf)
+	if err != nil {
+		return nil, fmt.Errorf("le serveur VPS ne répond pas : %w", err)
+	}
+
+	respPkt, err := protocol.Decode(buf[:n])
+	if err != nil || respPkt.Type != protocol.TypeEnrollResp {
+		return nil, fmt.Errorf("réponse invalide du serveur")
+	}
+
+	var respMap map[string]interface{}
+	if err := json.Unmarshal(respPkt.Payload, &respMap); err != nil {
+		return nil, fmt.Errorf("payload corrompu")
+	}
+
+	status, _ := respMap["status"].(string)
+	if status != "approved" {
+		return nil, fmt.Errorf("statut non approuvé : %s", status)
+	}
+
+	assignedIP, _ := respMap["assigned_ip"].(string)
+	if assignedIP == "" {
+		return nil, fmt.Errorf("adresse IP non fournie par le serveur")
+	}
+
+	ident := &ClientIdentity{
+		Alias:       alias,
+		PrivateKey:  privKeyB64,
+		PublicKey:   pubKeyB64,
+		AllocatedIP: assignedIP,
+		IsEnrolled:  true,
+	}
+
+	if err := saveClientIdentity(exeDir, ident); err != nil {
+		return nil, err
+	}
+
+	_ = writeLocalGameConfigs(exeDir, privKeyB64, assignedIP)
+	return ident, nil
+}
+
 func main() {
 	relayHost := flag.String("relay", "146.235.218.190", "Adresse IP du VPS Relais")
 	relayPort := flag.Int("port", 4141, "Port UDP du serveur Relais")
@@ -143,13 +302,12 @@ func main() {
 	exePath, _ := os.Executable()
 	exeDir := filepath.Dir(exePath)
 	adminKeyPath := filepath.Join(exeDir, "admin.key")
-	if _, err := os.Stat(adminKeyPath); os.IsNotExist(err) {
-		_ = os.WriteFile(adminKeyPath, []byte("crazyping-tahiti-2026\n"), 0600)
-	}
 	isAdmin := false
 	if _, err := os.Stat(adminKeyPath); err == nil {
 		isAdmin = true
 	}
+
+	ident := loadClientIdentity(exeDir, isAdmin)
 
 	metrics := &LiveMetrics{
 		MinRtt:       104.8,
@@ -207,6 +365,45 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(http.FS(subFS)))
+
+	var identMu sync.RWMutex
+
+	mux.HandleFunc("/api/identity", func(w http.ResponseWriter, r *http.Request) {
+		identMu.RLock()
+		defer identMu.RUnlock()
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(ident)
+	})
+
+	mux.HandleFunc("/api/enroll", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Méthode non autorisée", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			Alias string `json:"alias"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Alias) == "" {
+			http.Error(w, "Pseudo invalide", http.StatusBadRequest)
+			return
+		}
+		newIdent, err := performAutoEnroll(*relayHost, *relayPort, strings.TrimSpace(req.Alias), exeDir)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Erreur activation : %v", err), http.StatusInternalServerError)
+			return
+		}
+		identMu.Lock()
+		ident = newIdent
+		identMu.Unlock()
+
+		metrics.AppendLog(fmt.Sprintf("Bienvenue %s ! Accès optimisé activé sur IP %s", newIdent.Alias, newIdent.AllocatedIP))
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"alias":   newIdent.Alias,
+			"ip":      newIdent.AllocatedIP,
+		})
+	})
 
 	mux.HandleFunc("/api/metrics", func(w http.ResponseWriter, r *http.Request) {
 		metrics.mu.Lock()

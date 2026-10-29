@@ -442,6 +442,78 @@ func handleEnrollUDP(pkt *protocol.Packet, conn *net.UDPConn, clientAddr *net.UD
 	var respData map[string]interface{}
 
 	switch cmd.Action {
+	case "auto_enroll":
+		alias := strings.TrimSpace(cmd.Alias)
+		if alias == "" {
+			alias = "Joueur"
+		}
+		hostname := strings.TrimSpace(cmd.Hostname)
+		if hostname == "" {
+			hostname = "PC-Client"
+		}
+
+		var found *EnrollmentRequest
+		for _, e := range enrollments {
+			if e.PubKey == cmd.PubKey {
+				found = e
+				break
+			}
+		}
+
+		if found != nil && found.Status == "approved" {
+			found.Alias = alias
+			saveAlias(found.PubKey, alias)
+			saveEnrollments(enrollments)
+			respData = map[string]interface{}{
+				"status":        "approved",
+				"assigned_ip":   found.AssignedIP,
+				"server_pubkey": ServerPubKey,
+				"endpoint":      ServerEndpoint,
+				"alias":         alias,
+			}
+		} else {
+			ip, err := allocateNextFreeIP()
+			if err != nil {
+				respData = map[string]interface{}{
+					"status":  "error",
+					"message": fmt.Sprintf("Erreur allocation IP : %v", err),
+				}
+			} else {
+				cmdWg := exec.Command("wg", "set", "wg0", "peer", cmd.PubKey, "allowed-ips", fmt.Sprintf("%s/32", ip))
+				if out, err := cmdWg.CombinedOutput(); err != nil {
+					log.Printf("[AUTO-ENROLL] Erreur wg set: %v (%s)", err, string(out))
+				}
+
+				idBytes := make([]byte, 6)
+				_, _ = rand.Read(idBytes)
+				id := hex.EncodeToString(idBytes)
+
+				req := &EnrollmentRequest{
+					ID:         id,
+					PubKey:     cmd.PubKey,
+					Alias:      alias,
+					Hostname:   hostname,
+					ClientIP:   clientAddr.IP.String(),
+					CreatedAt:  time.Now().Unix(),
+					Status:     "approved",
+					AssignedIP: ip,
+				}
+				enrollments[id] = req
+				saveEnrollments(enrollments)
+				saveAlias(cmd.PubKey, alias)
+
+				log.Printf("[AUTO-ENROLL] Nouvel utilisateur auto-activé : %s (IP: %s, ID: %s) depuis %s", alias, ip, id, clientAddr.IP.String())
+
+				respData = map[string]interface{}{
+					"status":        "approved",
+					"assigned_ip":   ip,
+					"server_pubkey": ServerPubKey,
+					"endpoint":      ServerEndpoint,
+					"alias":         alias,
+				}
+			}
+		}
+
 	case "request":
 		// Vérifier si la pubkey existe déjà
 		var found *EnrollmentRequest

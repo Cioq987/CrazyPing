@@ -1,5 +1,6 @@
 # Secrets & Clés d'administration
 admin.key
+client_identity.json
 *.key
 *.pem
 *.local.conf
