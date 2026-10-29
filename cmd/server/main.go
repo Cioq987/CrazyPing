@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -24,10 +25,38 @@ import (
 )
 
 const (
-	AdminToken     = "crazyping-tahiti-2026"
 	ServerPubKey   = "5dRNSNB9hA8qxA00mYSXU97lFG/s3yyNGwUyhKKw8Cw="
 	ServerEndpoint = "146.235.218.190:51820"
 )
+
+var (
+	adminTokenPath = "/home/ubuntu/crazyping-admin.token"
+	adminToken     string
+)
+
+func loadOrGenerateAdminToken() string {
+	if data, err := os.ReadFile(adminTokenPath); err == nil {
+		tok := strings.TrimSpace(string(data))
+		if len(tok) >= 32 {
+			return tok
+		}
+	}
+	b := make([]byte, 32)
+	_, _ = rand.Read(b)
+	tok := hex.EncodeToString(b)
+	_ = os.WriteFile(adminTokenPath, []byte(tok+"\n"), 0600)
+	log.Printf("[SECURITY] Nouveau token maître généré dans %s (Permissions 0600)", adminTokenPath)
+	return tok
+}
+
+func isValidWireGuardPubKey(key string) bool {
+	clean := strings.TrimSpace(key)
+	if len(clean) != 44 {
+		return false
+	}
+	b, err := base64.StdEncoding.DecodeString(clean)
+	return err == nil && len(b) == 32
+}
 
 type Stats struct {
 	TotalReceived   uint64
@@ -302,7 +331,7 @@ func startAdminHTTPServer(port int) {
 
 	mux.HandleFunc("/api/admin/peers", func(w http.ResponseWriter, r *http.Request) {
 		token := r.URL.Query().Get("token")
-		if token != AdminToken {
+		if token != adminToken {
 			http.Error(w, "Accès refusé", http.StatusUnauthorized)
 			return
 		}
@@ -317,7 +346,7 @@ func startAdminHTTPServer(port int) {
 
 	mux.HandleFunc("/api/admin/pending", func(w http.ResponseWriter, r *http.Request) {
 		token := r.URL.Query().Get("token")
-		if token != AdminToken {
+		if token != adminToken {
 			http.Error(w, "Accès refusé", http.StatusUnauthorized)
 			return
 		}
@@ -335,7 +364,7 @@ func startAdminHTTPServer(port int) {
 	mux.HandleFunc("/api/admin/approve", func(w http.ResponseWriter, r *http.Request) {
 		token := r.URL.Query().Get("token")
 		id := r.URL.Query().Get("id")
-		if token != AdminToken || id == "" {
+		if token != adminToken || id == "" {
 			http.Error(w, "Accès refusé", http.StatusUnauthorized)
 			return
 		}
@@ -351,7 +380,7 @@ func startAdminHTTPServer(port int) {
 	mux.HandleFunc("/api/admin/reject", func(w http.ResponseWriter, r *http.Request) {
 		token := r.URL.Query().Get("token")
 		id := r.URL.Query().Get("id")
-		if token != AdminToken || id == "" {
+		if token != adminToken || id == "" {
 			http.Error(w, "Accès refusé", http.StatusUnauthorized)
 			return
 		}
@@ -362,7 +391,7 @@ func startAdminHTTPServer(port int) {
 	mux.HandleFunc("/api/admin/kick", func(w http.ResponseWriter, r *http.Request) {
 		token := r.URL.Query().Get("token")
 		pubKey := r.URL.Query().Get("pubkey")
-		if token != AdminToken || pubKey == "" {
+		if token != adminToken || pubKey == "" {
 			http.Error(w, "Accès refusé", http.StatusUnauthorized)
 			return
 		}
@@ -370,20 +399,20 @@ func startAdminHTTPServer(port int) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	addr := fmt.Sprintf("0.0.0.0:%d", port)
-	log.Printf("[ADMIN] API d'administration écoute sur HTTP %s", addr)
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	log.Printf("[ADMIN] API d'administration locale écoute sur %s", addr)
 	_ = http.ListenAndServe(addr, mux)
 }
 
 func handleAdminUDP(pkt *protocol.Packet, conn *net.UDPConn, clientAddr *net.UDPAddr) {
 	var cmd AdminCommand
 	if err := json.Unmarshal(pkt.Payload, &cmd); err != nil {
-		// Format brut hérité : juste lister les pairs
-		cmd.Action = "list_peers"
-		cmd.Token = AdminToken
+		log.Printf("[SECURITY] Rejet trame admin UDP invalide depuis %s", clientAddr.String())
+		return
 	}
 
-	if cmd.Token != AdminToken {
+	if cmd.Token == "" || cmd.Token != adminToken {
+		log.Printf("[SECURITY] Tentative admin rejetée (token non autorisé) depuis %s", clientAddr.String())
 		return
 	}
 
@@ -438,7 +467,50 @@ func handleEnrollUDP(pkt *protocol.Packet, conn *net.UDPConn, clientAddr *net.UD
 		return
 	}
 
+	if !isValidWireGuardPubKey(cmd.PubKey) {
+		log.Printf("[SECURITY] Rejet enrôlement: clé publique WireGuard invalide depuis %s", clientAddr.String())
+		respData := map[string]interface{}{
+			"status":  "error",
+			"message": "Clé publique invalide (format Curve25519 base64 32 octets requis)",
+		}
+		data, _ := json.Marshal(respData)
+		resp := &protocol.Packet{
+			Type:      protocol.TypeEnrollResp,
+			Seq:       pkt.Seq,
+			Timestamp: time.Now().UnixNano(),
+			Payload:   data,
+		}
+		_, _ = conn.WriteToUDP(resp.Encode(), clientAddr)
+		return
+	}
+
 	enrollments := loadEnrollments()
+
+	// Protection anti-épuisement d'IPs : maximum 3 allocations par IP publique cliente
+	clientIPStr := clientAddr.IP.String()
+	countForThisIP := 0
+	for _, e := range enrollments {
+		if e.ClientIP == clientIPStr && e.PubKey != cmd.PubKey && e.Status == "approved" {
+			countForThisIP++
+		}
+	}
+	if countForThisIP >= 3 {
+		log.Printf("[SECURITY] Quota d'allocations dépassé pour l'IP %s", clientIPStr)
+		respData := map[string]interface{}{
+			"status":  "error",
+			"message": "Quota d'allocations dépassé pour cette adresse IP",
+		}
+		data, _ := json.Marshal(respData)
+		resp := &protocol.Packet{
+			Type:      protocol.TypeEnrollResp,
+			Seq:       pkt.Seq,
+			Timestamp: time.Now().UnixNano(),
+			Payload:   data,
+		}
+		_, _ = conn.WriteToUDP(resp.Encode(), clientAddr)
+		return
+	}
+
 	var respData map[string]interface{}
 
 	switch cmd.Action {
@@ -619,6 +691,8 @@ func main() {
 	adminPort := flag.Int("admin", 4140, "Port TCP d'administration HTTP")
 	dedupTTL := flag.Duration("ttl", 3*time.Second, "Duree de retention du filtre anti-doublon")
 	flag.Parse()
+
+	adminToken = loadOrGenerateAdminToken()
 
 	go startAdminHTTPServer(*adminPort)
 

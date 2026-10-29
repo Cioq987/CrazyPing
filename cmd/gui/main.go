@@ -420,9 +420,14 @@ func main() {
 	exePath, _ := os.Executable()
 	exeDir := filepath.Dir(exePath)
 	adminKeyPath := filepath.Join(exeDir, "admin.key")
+	adminToken := ""
 	isAdmin := false
-	if _, err := os.Stat(adminKeyPath); err == nil {
-		isAdmin = true
+	if data, err := os.ReadFile(adminKeyPath); err == nil {
+		tok := strings.TrimSpace(string(data))
+		if len(tok) >= 16 {
+			adminToken = tok
+			isAdmin = true
+		}
 	}
 
 	ident := loadClientIdentity(exeDir, isAdmin)
@@ -617,11 +622,11 @@ func main() {
 	})
 
 	mux.HandleFunc("/api/admin/peers", func(w http.ResponseWriter, r *http.Request) {
-		if !metrics.IsAdmin {
+		if !metrics.IsAdmin || adminToken == "" {
 			http.Error(w, "Accès réservé", http.StatusForbidden)
 			return
 		}
-		data, err := queryVpsAdminAction(*relayHost, *relayPort, "list_peers", "", "")
+		data, err := queryVpsAdminAction(*relayHost, *relayPort, adminToken, "list_peers", "", "")
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Erreur: %v", err), http.StatusBadGateway)
 			return
@@ -631,11 +636,11 @@ func main() {
 	})
 
 	mux.HandleFunc("/api/admin/pending", func(w http.ResponseWriter, r *http.Request) {
-		if !metrics.IsAdmin {
+		if !metrics.IsAdmin || adminToken == "" {
 			http.Error(w, "Accès réservé", http.StatusForbidden)
 			return
 		}
-		data, err := queryVpsAdminAction(*relayHost, *relayPort, "list_pending", "", "")
+		data, err := queryVpsAdminAction(*relayHost, *relayPort, adminToken, "list_pending", "", "")
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Erreur: %v", err), http.StatusBadGateway)
 			return
@@ -645,12 +650,12 @@ func main() {
 	})
 
 	mux.HandleFunc("/api/admin/approve", func(w http.ResponseWriter, r *http.Request) {
-		if !metrics.IsAdmin {
+		if !metrics.IsAdmin || adminToken == "" {
 			http.Error(w, "Accès réservé", http.StatusForbidden)
 			return
 		}
 		id := r.URL.Query().Get("id")
-		data, err := queryVpsAdminAction(*relayHost, *relayPort, "approve", id, "")
+		data, err := queryVpsAdminAction(*relayHost, *relayPort, adminToken, "approve", id, "")
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Erreur: %v", err), http.StatusBadGateway)
 			return
@@ -660,12 +665,12 @@ func main() {
 	})
 
 	mux.HandleFunc("/api/admin/reject", func(w http.ResponseWriter, r *http.Request) {
-		if !metrics.IsAdmin {
+		if !metrics.IsAdmin || adminToken == "" {
 			http.Error(w, "Accès réservé", http.StatusForbidden)
 			return
 		}
 		id := r.URL.Query().Get("id")
-		data, err := queryVpsAdminAction(*relayHost, *relayPort, "reject", id, "")
+		data, err := queryVpsAdminAction(*relayHost, *relayPort, adminToken, "reject", id, "")
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Erreur: %v", err), http.StatusBadGateway)
 			return
@@ -675,12 +680,12 @@ func main() {
 	})
 
 	mux.HandleFunc("/api/admin/revoke", func(w http.ResponseWriter, r *http.Request) {
-		if !metrics.IsAdmin {
+		if !metrics.IsAdmin || adminToken == "" {
 			http.Error(w, "Accès réservé", http.StatusForbidden)
 			return
 		}
 		pubKey := r.URL.Query().Get("pubkey")
-		data, err := queryVpsAdminAction(*relayHost, *relayPort, "revoke", "", pubKey)
+		data, err := queryVpsAdminAction(*relayHost, *relayPort, adminToken, "revoke", "", pubKey)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Erreur: %v", err), http.StatusBadGateway)
 			return
@@ -847,7 +852,7 @@ func openNativeWindow(url string) {
 	}
 }
 
-func queryVpsAdminAction(relayHost string, relayPort int, action, id, pubKey string) ([]byte, error) {
+func queryVpsAdminAction(relayHost string, relayPort int, adminToken, action, id, pubKey string) ([]byte, error) {
 	rAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost, relayPort))
 	if err != nil {
 		return nil, err
@@ -862,7 +867,7 @@ func queryVpsAdminAction(relayHost string, relayPort int, action, id, pubKey str
 
 	payload, _ := json.Marshal(map[string]string{
 		"action": action,
-		"token":  "crazyping-tahiti-2026",
+		"token":  adminToken,
 		"id":     id,
 		"pubKey": pubKey,
 	})

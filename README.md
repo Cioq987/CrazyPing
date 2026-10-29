@@ -113,11 +113,8 @@ Téléchargez l'installateur autonome depuis la dernière [**Release GitHub**](h
 
 L'installateur configure automatiquement l'exécutable, les raccourcis et vérifie la présence du pilote Wintun / WireGuard.
 
-### 2. Mode Superviseur (Administrateur)
-Pour surveiller les joueurs connectés en direct et gérer les autorisations :
-1. Déployez le volet **Superviseur** en bas de l'application.
-2. Entrez votre clé d'administration (`admin.key`).
-3. Vous visualisez les pseudos, adresses IP WireGuard, IP publiques FAI et débits en temps réel, avec la possibilité de révoquer un accès d'un clic.
+### 2. Mode Superviseur (Privé)
+Le panneau de contrôle administrateur permet à l'administrateur de l'infrastructure de surveiller en direct l'état des liaisons, les adresses IP allouées et les débits effectifs, avec la possibilité d'interrompre ou de révoquer un accès à tout instant.
 
 ---
 
