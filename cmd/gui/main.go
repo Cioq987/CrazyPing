@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"math"
@@ -29,8 +30,125 @@ import (
 var webFiles embed.FS
 
 const (
-	wgExePath = `C:\Program Files\WireGuard\wireguard.exe`
+	AppVersion = "1.0.0"
+	GitHubRepo = "Cioq987/CrazyPing"
+	wgExePath  = `C:\Program Files\WireGuard\wireguard.exe`
 )
+
+type UpdateInfo struct {
+	CurrentVersion string `json:"currentVersion"`
+	LatestVersion  string `json:"latestVersion"`
+	HasUpdate      bool   `json:"hasUpdate"`
+	ReleaseName    string `json:"releaseName"`
+	ReleaseNotes   string `json:"releaseNotes"`
+	DownloadURL    string `json:"downloadUrl"`
+	ReleaseURL     string `json:"releaseUrl"`
+}
+
+func isNewerVersion(latest, current string) bool {
+	cleanLatest := strings.TrimPrefix(strings.TrimSpace(latest), "v")
+	cleanCurrent := strings.TrimPrefix(strings.TrimSpace(current), "v")
+	return cleanLatest != cleanCurrent && cleanLatest > cleanCurrent
+}
+
+func checkGitHubUpdate() (*UpdateInfo, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", GitHubRepo)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "CrazyPing-Updater/"+AppVersion)
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	client := &http.Client{Timeout: 6 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
+	}
+
+	var ghRelease struct {
+		TagName string `json:"tag_name"`
+		Name    string `json:"name"`
+		Body    string `json:"body"`
+		HTMLURL string `json:"html_url"`
+		Assets  []struct {
+			Name               string `json:"name"`
+			BrowserDownloadURL string `json:"browser_download_url"`
+		} `json:"assets"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&ghRelease); err != nil {
+		return nil, err
+	}
+
+	downloadURL := ""
+	for _, a := range ghRelease.Assets {
+		if strings.HasSuffix(strings.ToLower(a.Name), ".exe") {
+			downloadURL = a.BrowserDownloadURL
+			if strings.Contains(strings.ToLower(a.Name), "setup") {
+				break
+			}
+		}
+	}
+
+	hasUpdate := isNewerVersion(ghRelease.TagName, AppVersion)
+	return &UpdateInfo{
+		CurrentVersion: AppVersion,
+		LatestVersion:  ghRelease.TagName,
+		HasUpdate:      hasUpdate,
+		ReleaseName:    ghRelease.Name,
+		ReleaseNotes:   ghRelease.Body,
+		DownloadURL:    downloadURL,
+		ReleaseURL:     ghRelease.HTMLURL,
+	}, nil
+}
+
+func downloadAndApplyUpdate(downloadURL string) error {
+	if downloadURL == "" {
+		return fmt.Errorf("aucune URL de téléchargement fournie")
+	}
+
+	tempDir := os.TempDir()
+	installerPath := filepath.Join(tempDir, "CrazyPing-Setup-Update.exe")
+
+	resp, err := http.Get(downloadURL)
+	if err != nil {
+		return fmt.Errorf("erreur téléchargement installateur: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("erreur HTTP téléchargement: %d", resp.StatusCode)
+	}
+
+	out, err := os.Create(installerPath)
+	if err != nil {
+		return fmt.Errorf("erreur création fichier temporaire: %w", err)
+	}
+
+	if _, err := io.Copy(out, resp.Body); err != nil {
+		out.Close()
+		return fmt.Errorf("erreur écriture installateur: %w", err)
+	}
+	out.Close()
+
+	cmd := exec.Command(installerPath, "/SILENT", "/SUPPRESSMSGBOXES", "/FORCECLOSEAPPLICATIONS")
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("erreur lancement installateur: %w", err)
+	}
+
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		os.Exit(0)
+	}()
+
+	return nil
+}
 
 type LiveMetrics struct {
 	mu               sync.Mutex
@@ -403,6 +521,44 @@ func main() {
 			"alias":   newIdent.Alias,
 			"ip":      newIdent.AllocatedIP,
 		})
+	})
+
+	mux.HandleFunc("/api/update/check", func(w http.ResponseWriter, r *http.Request) {
+		info, err := checkGitHubUpdate()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Erreur vérification MAJ: %v", err), http.StatusBadGateway)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(info)
+	})
+
+	mux.HandleFunc("/api/update/apply", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Méthode non autorisée", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			URL string `json:"url"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		downloadURL := req.URL
+		if downloadURL == "" {
+			info, err := checkGitHubUpdate()
+			if err != nil || info.DownloadURL == "" {
+				http.Error(w, "URL introuvable", http.StatusBadRequest)
+				return
+			}
+			downloadURL = info.DownloadURL
+		}
+
+		metrics.AppendLog("Téléchargement de la mise à jour en cours...")
+		if err := downloadAndApplyUpdate(downloadURL); err != nil {
+			http.Error(w, fmt.Sprintf("Erreur mise à jour: %v", err), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]bool{"started": true})
 	})
 
 	mux.HandleFunc("/api/metrics", func(w http.ResponseWriter, r *http.Request) {
