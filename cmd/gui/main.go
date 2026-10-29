@@ -87,10 +87,16 @@ func (m *LiveMetrics) startTunnel(confNameOrPath string) error {
 		return err
 	}
 
-	tunnelName := strings.TrimSuffix(filepath.Base(absPath), ".conf")
+	localConf := strings.TrimSuffix(absPath, ".conf") + ".local.conf"
+	targetConfPath := absPath
+	if _, err := os.Stat(localConf); err == nil {
+		targetConfPath = localConf
+	}
+
+	tunnelName := strings.TrimSuffix(filepath.Base(targetConfPath), ".conf")
 	m.AppendLog(fmt.Sprintf("Activation du tunnel Wintun (%s)...", tunnelName))
 
-	cmd := exec.Command(wgExePath, "/installtunnelservice", absPath)
+	cmd := exec.Command(wgExePath, "/installtunnelservice", targetConfPath)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		m.AppendLog(fmt.Sprintf("Erreur démarrage Wintun : %v (%s)", err, strings.TrimSpace(string(out))))
@@ -108,7 +114,11 @@ func (m *LiveMetrics) startTunnel(confNameOrPath string) error {
 
 // stopCurrentTunnels arrête proprement tous les tunnels gérés par CrazyPing
 func (m *LiveMetrics) stopCurrentTunnels() {
-	tunnels := []string{"CrazyPing-MistfallHunter", "CrazyPing-Valorant", "CrazyPing-Fortnite"}
+	tunnels := []string{
+		"CrazyPing-MistfallHunter", "CrazyPing-MistfallHunter.local",
+		"CrazyPing-Valorant", "CrazyPing-Valorant.local",
+		"CrazyPing-Fortnite", "CrazyPing-Fortnite.local",
+	}
 	for _, t := range tunnels {
 		_ = exec.Command(wgExePath, "/uninstalltunnelservice", t).Run()
 	}

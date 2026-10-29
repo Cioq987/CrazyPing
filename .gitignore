@@ -2,6 +2,7 @@
 admin.key
 *.key
 *.pem
+*.local.conf
 
 # Binaires compilés et exécutables
 *.exe
