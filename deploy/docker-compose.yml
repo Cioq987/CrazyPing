@@ -1,0 +1,11 @@
+services:
+  crazyping-relay:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: crazyping-relay
+    restart: always
+    network_mode: "host"
+    ports:
+      - "4141:4141/udp"
+    command: ["-port", "4141", "-ttl", "3s"]

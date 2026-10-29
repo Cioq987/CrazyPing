@@ -1,0 +1,25 @@
+# Secrets & Clés d'administration
+admin.key
+*.key
+*.pem
+
+# Binaires compilés et exécutables
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.syso
+crazyping-server-linux-*
+dist/
+
+# Fichiers temporaires et logs
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Environnements et IDE
+.vscode/
+.idea/
+*.swp

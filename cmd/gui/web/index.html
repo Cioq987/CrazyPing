@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CrazyPing — Tahiti Gaming Optimizer</title>
+  <link rel="icon" type="image/png" href="icon.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #090d16 60%, #030712 100%);
+      color: #f1f5f9;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      user-select: none;
+    }
+    .glow-cyan {
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.35);
+    }
+    .glow-green {
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.45);
+    }
+    .glass {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.5);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      transition: all 0.2s ease-in-out;
+    }
+    .glass-card:hover {
+      border-color: rgba(6, 182, 212, 0.4);
+      transform: translateY(-2px);
+    }
+    .game-card.active {
+      border-color: #06b6d4;
+      background: rgba(6, 182, 212, 0.15);
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+    }
+  </style>
+</head>
+<body class="min-h-screen p-5 flex flex-col justify-between">
+
+  <!-- Header -->
+  <header class="flex items-center justify-between pb-4 border-b border-slate-800">
+    <div class="flex items-center gap-3">
+      <img src="icon.png" alt="CrazyPing Logo" class="w-10 h-10 rounded-xl shadow-lg shadow-cyan-500/30 object-cover border border-cyan-500/30">
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl font-extrabold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-400">
+            CrazyPing
+          </h1>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800 font-semibold flex items-center gap-1">
+            <span>🇵🇫</span> Tahiti Optimizer
+          </span>
+        </div>
+        <p class="text-xs text-slate-400">Accélérateur Wintun Embarqué & Route Honotua Directe</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <!-- Admin Button (Affiché uniquement si admin.key est présent) -->
+      <button id="admin-toggle-btn" class="hidden px-3 py-1.5 rounded-xl text-xs font-semibold bg-violet-950/70 text-violet-300 border border-violet-700/60 hover:bg-violet-900/60 transition flex items-center gap-2 cursor-pointer shadow-lg shadow-violet-950/50">
+        <span>🛡️</span>
+        <span>Superviseur VPS</span>
+        <span id="admin-badge-count" class="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono">1</span>
+      </button>
+
+      <!-- VPS Status Badge -->
+      <div class="flex items-center gap-3 glass px-3 py-1.5 rounded-xl">
+        <span class="relative flex h-3 w-3">
+          <span id="vps-ping-pulse" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span id="vps-ping-dot" class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+        </span>
+        <div class="text-right">
+          <div class="text-xs font-semibold text-slate-200" id="vps-host-display">146.235.218.190</div>
+          <div class="text-[10px] text-emerald-400 font-medium">Oracle US West (San José) — 108 ms</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Metric Badges -->
+  <section class="grid grid-cols-4 gap-4 my-4">
+    <!-- Latence -->
+    <div class="glass p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+      <span class="text-xs uppercase tracking-wider text-slate-400 font-medium">Latence Réelle (RTT)</span>
+      <div class="flex items-baseline gap-1 my-1">
+        <span id="rtt-value" class="text-4xl font-black text-cyan-400">108.0</span>
+        <span class="text-sm font-semibold text-slate-400">ms</span>
+      </div>
+      <div class="text-[11px] text-slate-400">
+        Min: <span id="rtt-min" class="text-slate-200">104.8</span> | Max: <span id="rtt-max" class="text-slate-200">112.1</span>
+      </div>
+    </div>
+
+    <!-- Gigue (Jitter) -->
+    <div class="glass p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+      <span class="text-xs uppercase tracking-wider text-slate-400 font-medium">Gigue (Jitter)</span>
+      <div class="flex items-baseline gap-1 my-1">
+        <span id="jitter-value" class="text-4xl font-black text-emerald-400">0.3</span>
+        <span class="text-sm font-semibold text-slate-400">ms</span>
+      </div>
+      <span class="text-[11px] text-emerald-400/90 font-medium">Stabilité Ultra-Lisse</span>
+    </div>
+
+    <!-- Pertes Évitées / Trafic -->
+    <div class="glass p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+      <span class="text-xs uppercase tracking-wider text-slate-400 font-medium">Trafic Tunnel</span>
+      <div class="flex items-baseline gap-1 my-1">
+        <span id="traffic-bytes" class="text-3xl font-black text-indigo-400">32.4 Ko</span>
+      </div>
+      <span class="text-[11px] text-indigo-300">0% de perte détectée</span>
+    </div>
+
+    <!-- Statut Tunnel -->
+    <div class="glass p-4 rounded-2xl flex flex-col items-center justify-center text-center">
+      <span class="text-xs uppercase tracking-wider text-slate-400 font-medium">État Wintun</span>
+      <div class="flex items-baseline gap-1 my-1">
+        <span id="tunnel-status-text" class="text-2xl font-black text-slate-400">EN ATTENTE</span>
+      </div>
+      <span class="text-[11px] text-slate-300 font-medium" id="selected-game-label">Mistfall Hunter</span>
+    </div>
+  </section>
+
+  <!-- Main Content: Games & Controls -->
+  <div class="grid grid-cols-3 gap-5 my-2">
+    
+    <!-- Games Selection (2 cols) -->
+    <div class="col-span-2 glass p-4 rounded-2xl">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+          <span>🎯</span> Vos Jeux Détectés & Optimisables
+        </h2>
+        <span class="text-xs text-cyan-400 font-mono">1 Clic = Commutation Wintun</span>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2.5" id="games-container">
+        <!-- Rempli dynamiquement en JS -->
+      </div>
+    </div>
+
+    <!-- Controls & Parameters (1 col) -->
+    <div class="glass p-4 rounded-2xl flex flex-col justify-between">
+      <div>
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300 mb-3 flex items-center gap-2">
+          <span>⚙️</span> Paramètres Tahiti
+        </h2>
+
+        <!-- Multipath Switch -->
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/40 mb-3">
+          <div>
+            <div class="text-xs font-semibold text-slate-200">Redondance Multipath</div>
+            <div class="text-[10px] text-slate-400">Duplique chaque paquet envoyé</div>
+          </div>
+          <input type="checkbox" id="multipath-toggle" checked class="w-5 h-5 accent-cyan-500 rounded cursor-pointer">
+        </div>
+
+        <!-- MTU Clamping -->
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/40 mb-3">
+          <div>
+            <div class="text-xs font-semibold text-slate-200">MTU Clamping (Tahiti)</div>
+            <div class="text-[10px] text-slate-400">Anti-fragmentation PPPoE</div>
+          </div>
+          <span class="text-xs font-bold text-cyan-400 font-mono">1380</span>
+        </div>
+
+        <!-- VPS Config -->
+        <div class="p-2.5 rounded-xl bg-slate-800/40 text-xs mb-3">
+          <label class="text-slate-400 block mb-1">Serveur Relais VPS :</label>
+          <input type="text" id="vps-input" value="146.235.218.190:51820" readonly class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs font-mono">
+        </div>
+      </div>
+
+      <!-- Big Optimization Action Button -->
+      <button id="toggle-optimize-btn" class="w-full py-3.5 px-4 rounded-xl font-bold uppercase tracking-wider text-sm text-slate-900 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 transition shadow-lg glow-cyan flex items-center justify-center gap-2 cursor-pointer">
+        <span>🚀</span>
+        <span id="btn-text">Démarrer l'Optimisation</span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Realtime Graph & Logs -->
+  <div class="grid grid-cols-3 gap-5 mt-2">
+    <!-- Graph -->
+    <div class="col-span-2 glass p-4 rounded-2xl">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Évolution de la latence (30s)</span>
+        <span class="text-xs text-cyan-400 font-mono" id="graph-last-ping">108.0 ms</span>
+      </div>
+      <div class="h-28 w-full">
+        <canvas id="pingChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Mini Terminal Logs -->
+    <div class="glass p-3 rounded-2xl flex flex-col">
+      <span class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span> Journal d'activité en direct
+      </span>
+      <div id="logs-box" class="h-28 overflow-y-auto font-mono text-[11px] text-slate-400 space-y-1 bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+        <!-- Rempli en direct -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Admin Superviseur Honotua (Placée avant le script) -->
+  <div id="admin-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-6">
+    <div class="glass w-full max-w-4xl p-6 rounded-3xl border border-violet-500/30 shadow-2xl shadow-violet-950/60 max-h-[90vh] flex flex-col">
+      <!-- Header modal -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-violet-950 border border-violet-500/50 flex items-center justify-center text-xl shadow-lg shadow-violet-500/20">
+            🛡️
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-lg font-extrabold text-white">Superviseur Infrastructure Honotua</h2>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-violet-900 text-violet-200 border border-violet-700 font-mono">ADMIN LOCAL</span>
+            </div>
+            <p class="text-xs text-slate-400">Oracle Cloud US West (San José) — Supervision des joueurs WireGuard</p>
+          </div>
+        </div>
+        <button id="close-admin-btn" class="text-slate-400 hover:text-white px-3 py-1.5 rounded-xl bg-slate-800/60 hover:bg-slate-700 transition cursor-pointer text-xs font-bold">
+          ✕ Fermer
+        </button>
+      </div>
+
+      <!-- Quick KPI Stats -->
+      <div class="grid grid-cols-3 gap-3 my-4">
+        <div class="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+          <div>
+            <div class="text-[11px] text-slate-400 font-semibold uppercase">Joueurs Connectés</div>
+            <div id="admin-online-count" class="text-2xl font-black text-emerald-400">0</div>
+          </div>
+          <span class="text-2xl">👥</span>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+          <div>
+            <div class="text-[11px] text-slate-400 font-semibold uppercase">Trafic Total Échangé</div>
+            <div id="admin-total-traffic" class="text-2xl font-black text-cyan-400">0 Ko</div>
+          </div>
+          <span class="text-2xl">⚡</span>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+          <div>
+            <div class="text-[11px] text-slate-400 font-semibold uppercase">Quota Mensuel Gratuit</div>
+            <div class="text-2xl font-black text-indigo-400">10 To <span class="text-xs font-normal text-slate-400">Oracle</span></div>
+          </div>
+          <span class="text-2xl">☁️</span>
+        </div>
+      </div>
+
+      <!-- Section Demandes d'amis en attente (Live) -->
+      <div id="pending-section" class="mb-4 hidden">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Demandes d'accès en attente
+          </span>
+          <span id="pending-badge-count" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-500/40">0</span>
+        </div>
+        <div id="pending-list" class="space-y-2 bg-slate-900/80 p-3 rounded-2xl border border-amber-500/30">
+          <!-- Rempli dynamiquement -->
+        </div>
+      </div>
+
+      <!-- Peers Table -->
+      <div class="flex-1 overflow-y-auto">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Joueurs & Appareils Enregistrés</span>
+          <button id="refresh-admin-btn" class="text-xs text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 cursor-pointer">
+            🔄 Actualiser
+          </button>
+        </div>
+        <table class="w-full text-left text-xs text-slate-300">
+          <thead class="bg-slate-900/80 uppercase text-[10px] text-slate-400 border-b border-slate-800">
+            <tr>
+              <th class="py-2.5 px-3">Statut</th>
+              <th class="py-2.5 px-3">Joueur / Alias</th>
+              <th class="py-2.5 px-3">IP WireGuard</th>
+              <th class="py-2.5 px-3">IP FAI (Tahiti)</th>
+              <th class="py-2.5 px-3">Dernier échange</th>
+              <th class="py-2.5 px-3">Données Transférées</th>
+              <th class="py-2.5 px-3 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody id="peers-table-body" class="divide-y divide-slate-800/60">
+            <!-- Rempli dynamiquement -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Confirmation Changement de Jeu -->
+  <div id="switch-confirm-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="glass p-6 rounded-3xl border border-amber-500/40 shadow-2xl max-w-sm w-full text-center">
+      <span class="text-4xl mb-3 block">⚠️</span>
+      <h3 class="text-base font-extrabold text-white mb-1.5">Optimisation Active</h3>
+      <p id="switch-confirm-text" class="text-xs text-slate-300 leading-relaxed mb-5">Le tunnel est en cours d'utilisation. Voulez-vous basculer sur ce jeu ?</p>
+      <div class="flex gap-2.5">
+        <button id="cancel-switch-btn" class="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition cursor-pointer">Annuler</button>
+        <button id="confirm-switch-btn" class="flex-1 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 hover:brightness-110 transition cursor-pointer shadow-lg shadow-amber-500/20">Bascule immédiate</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const games = [
+      { id: 'fortnite', name: 'Fortnite', icon: '⛏️', path: 'Epic Games\\Fortnite', target: 'Epic Games / AWS NA-West', conf: 'CrazyPing-Fortnite.conf', ready: true },
+      { id: 'mistfall', name: 'Mistfall Hunter', icon: '⚔️', path: 'E:\\steam\\steamapps\\common\\Mistfall Hunter', target: 'NetEase / AWS GameLift', conf: 'CrazyPing-MistfallHunter.conf', ready: true },
+      { id: 'valorant', name: 'Valorant', icon: '🎯', path: 'Riot Games\\VALORANT', target: 'Riot Direct US (San José)', conf: 'CrazyPing-Valorant.conf', ready: true },
+      { id: 'marvel', name: 'Marvel Rivals', icon: '🦸', path: 'E:\\steam\\steamapps\\common\\MarvelRivals', target: 'NetEase / AWS US West', conf: '', ready: false },
+      { id: 'cs2', name: 'Counter-Strike 2', icon: '💣', path: 'E:\\steam\\steamapps\\common\\Counter-Strike Global Offensive', target: 'Valve SDR US West', conf: '', ready: false },
+      { id: 'halo', name: 'Halo Infinite', icon: '🛡️', path: 'E:\\steam\\steamapps\\common\\Halo Infinite', target: 'Xbox Cloud US West', conf: '', ready: false },
+      { id: 'palworld', name: 'Palworld', icon: '🐾', path: 'E:\\steam\\steamapps\\common\\Palworld', target: 'Dedicated Servers', conf: '', ready: false },
+      { id: 'sf6', name: 'Street Fighter 6', icon: '🥊', path: 'E:\\steam\\steamapps\\common\\Street Fighter 6', target: 'Capcom Rollback Netcode', conf: '', ready: false },
+      { id: 'forza', name: 'Forza Horizon 5', icon: '🏎️', path: 'E:\\steam\\steamapps\\common\\ForzaHorizon5', target: 'Microsoft Azure US West', conf: '', ready: false },
+    ];
+
+    let selectedGame = games[0]; // Fortnite par défaut
+    let isTunnelActive = false;
+    let pendingSwitchGame = null;
+
+    const switchModal = document.getElementById('switch-confirm-modal');
+    document.getElementById('cancel-switch-btn').onclick = () => {
+      switchModal.classList.add('hidden');
+      pendingSwitchGame = null;
+    };
+    document.getElementById('confirm-switch-btn').onclick = () => {
+      switchModal.classList.add('hidden');
+      if (pendingSwitchGame) {
+        activateGameSelection(pendingSwitchGame);
+        pendingSwitchGame = null;
+      }
+    };
+
+    function activateGameSelection(g) {
+      document.querySelectorAll('.game-card').forEach(c => c.classList.remove('active'));
+      const activeCard = document.getElementById(`card-${g.id}`);
+      if (activeCard) activeCard.classList.add('active');
+      selectedGame = g;
+      document.getElementById('selected-game-label').innerText = `${g.name}`;
+      fetch(`/api/select-game?game=${encodeURIComponent(g.name)}&conf=${encodeURIComponent(g.conf)}`);
+    }
+
+    // Render Games
+    const gamesContainer = document.getElementById('games-container');
+    games.forEach((g, idx) => {
+      const card = document.createElement('div');
+      card.id = `card-${g.id}`;
+
+      if (g.ready) {
+        card.className = `game-card glass-card p-2.5 rounded-xl cursor-pointer flex items-center justify-between gap-2 ${idx === 0 ? 'active' : ''}`;
+        card.innerHTML = `
+          <div class="flex items-center gap-2.5 overflow-hidden">
+            <span class="text-2xl shrink-0">${g.icon}</span>
+            <div class="overflow-hidden">
+              <div class="text-xs font-bold text-slate-200 truncate">${g.name}</div>
+              <div class="text-[10px] text-cyan-400 font-mono truncate">${g.target}</div>
+            </div>
+          </div>
+          <span class="shrink-0 text-[10px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 rounded-full px-2 py-0.5 flex items-center gap-1 shadow-sm shadow-emerald-950">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Prêt
+          </span>
+        `;
+        card.onclick = () => {
+          if (selectedGame.id === g.id) return;
+          if (isTunnelActive) {
+            pendingSwitchGame = g;
+            document.getElementById('switch-confirm-text').innerText =
+              `L'optimisation Wintun est actuellement active sur "${selectedGame.name}". Voulez-vous basculer le tunnel vers "${g.name}" ? Le tunnel sera automatiquement réinitialisé.`;
+            switchModal.classList.remove('hidden');
+          } else {
+            activateGameSelection(g);
+          }
+        };
+      } else {
+        card.className = `game-card glass-card p-2.5 rounded-xl flex items-center justify-between gap-2 opacity-40 cursor-not-allowed select-none border-dashed border-slate-700/60`;
+        card.title = "Profil en cours de développement";
+        card.innerHTML = `
+          <div class="flex items-center gap-2.5 overflow-hidden">
+            <span class="text-2xl shrink-0 grayscale">${g.icon}</span>
+            <div class="overflow-hidden">
+              <div class="text-xs font-medium text-slate-400 truncate">${g.name}</div>
+              <div class="text-[10px] text-slate-500 font-mono truncate">${g.target}</div>
+            </div>
+          </div>
+          <span class="shrink-0 text-[9px] font-semibold text-amber-400/90 bg-amber-950/60 border border-amber-500/30 rounded-full px-2 py-0.5 flex items-center gap-1">
+            <span>🚧</span>En dév.
+          </span>
+        `;
+        card.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        };
+      }
+
+      gamesContainer.appendChild(card);
+    });
+
+    // Chart.js init
+    const ctx = document.getElementById('pingChart').getContext('2d');
+    const chartData = {
+      labels: Array(25).fill(''),
+      datasets: [{
+        label: 'Ping (ms)',
+        data: Array(25).fill(108),
+        borderColor: '#06b6d4',
+        borderWidth: 2,
+        backgroundColor: 'rgba(6, 182, 212, 0.1)',
+        tension: 0.3,
+        fill: true,
+        pointRadius: 0
+      }]
+    };
+    const pingChart = new Chart(ctx, {
+      type: 'line',
+      data: chartData,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { display: false },
+          y: {
+            min: 80,
+            max: 140,
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: { color: '#64748b', font: { size: 10 } }
+          }
+        }
+      }
+    });
+
+    // Bouton interactif Activer / Pause
+    const btn = document.getElementById('toggle-optimize-btn');
+    const btnText = document.getElementById('btn-text');
+    const statusText = document.getElementById('tunnel-status-text');
+
+    btn.onclick = async () => {
+      try {
+        btnText.innerText = "Action en cours...";
+        const res = await fetch('/api/tunnel/toggle', { method: 'POST' });
+        const data = await res.json();
+        updateButtonState(data.active);
+      } catch (e) {}
+    };
+
+    function updateButtonState(isActive) {
+      isTunnelActive = !!isActive;
+      if (isActive) {
+        btn.className = "w-full py-3.5 px-4 rounded-xl font-bold uppercase tracking-wider text-sm text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 transition shadow-lg glow-green flex items-center justify-center gap-2 cursor-pointer";
+        btnText.innerText = "Optimisation Active (Stop)";
+        statusText.innerText = "ACTIF";
+        statusText.className = "text-2xl font-black text-emerald-400";
+      } else {
+        btn.className = "w-full py-3.5 px-4 rounded-xl font-bold uppercase tracking-wider text-sm text-slate-900 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 transition shadow-lg glow-cyan flex items-center justify-center gap-2 cursor-pointer";
+        btnText.innerText = "Démarrer l'Optimisation";
+        statusText.innerText = "EN PAUSE";
+        statusText.className = "text-2xl font-black text-cyan-400";
+      }
+    }
+
+    let lastLogCount = 0;
+    const logsBox = document.getElementById('logs-box');
+
+    // Polling API en direct
+    setInterval(async () => {
+      try {
+        const res = await fetch('/api/metrics');
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById('rtt-value').innerText = data.rtt.toFixed(1);
+          document.getElementById('rtt-min').innerText = data.minRtt.toFixed(1);
+          document.getElementById('rtt-max').innerText = data.maxRtt.toFixed(1);
+          document.getElementById('jitter-value').innerText = data.jitter.toFixed(1);
+          if (data.traffic) {
+            document.getElementById('traffic-bytes').innerText = data.traffic;
+          }
+          document.getElementById('graph-last-ping').innerText = `${data.rtt.toFixed(1)} ms`;
+
+          // Rendu des logs dynamiques
+          if (data.logs && data.logs.length !== lastLogCount) {
+            logsBox.innerHTML = '';
+            data.logs.forEach(msg => {
+              const div = document.createElement('div');
+              div.innerText = msg;
+              logsBox.appendChild(div);
+            });
+            logsBox.scrollTop = logsBox.scrollHeight;
+            lastLogCount = data.logs.length;
+          }
+
+          // Affichage du bouton Admin si actif
+          if (data.isAdmin) {
+            document.getElementById('admin-toggle-btn').classList.remove('hidden');
+          }
+
+          // Mise a jour de l'etat du bouton
+          if (data.tunnelActive !== undefined) {
+            updateButtonState(data.tunnelActive);
+          }
+
+          // Mise a jour du graphique
+          chartData.datasets[0].data.shift();
+          chartData.datasets[0].data.push(data.rtt);
+          pingChart.update('none');
+        }
+      } catch (err) {}
+    }, 1000);
+
+    // Gestion de la modal Superviseur VPS
+    const adminModal = document.getElementById('admin-modal');
+    const adminBtn = document.getElementById('admin-toggle-btn');
+    const closeAdminBtn = document.getElementById('close-admin-btn');
+    const refreshAdminBtn = document.getElementById('refresh-admin-btn');
+    const peersTbody = document.getElementById('peers-table-body');
+
+    if (adminBtn) {
+      adminBtn.onclick = () => {
+        adminModal.classList.remove('hidden');
+        loadAdminPeers();
+      };
+    }
+
+    if (closeAdminBtn) {
+      closeAdminBtn.onclick = () => {
+        adminModal.classList.add('hidden');
+      };
+    }
+
+    if (adminModal) {
+      adminModal.onclick = (e) => {
+        if (e.target === adminModal) {
+          adminModal.classList.add('hidden');
+        }
+      };
+    }
+
+    if (refreshAdminBtn) {
+      refreshAdminBtn.onclick = () => {
+        loadAdminPeers();
+      };
+    }
+
+    async function loadAdminPeers() {
+      try {
+        refreshAdminBtn.innerText = "Chargement...";
+        const res = await fetch('/api/admin/peers');
+        if (!res.ok) throw new Error("Erreur");
+        const raw = await res.json();
+        const peers = Array.isArray(raw) ? raw : [raw];
+
+        let onlineCount = 0;
+        let totalRx = 0;
+        let totalTx = 0;
+
+        peersTbody.innerHTML = '';
+        peers.forEach(p => {
+          if (p.isOnline) onlineCount++;
+          totalRx += p.rxBytes;
+          totalTx += p.txBytes;
+
+          const isMaster = p.allowedIps === "10.10.0.2/32";
+          const actionHtml = isMaster
+            ? `<span class="text-[10px] text-slate-500 font-mono">Principal</span>`
+            : `<button onclick="revokeFriend('${p.pubKey}')" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-950/60 text-rose-300 border border-rose-500/30 hover:bg-rose-900/60 transition cursor-pointer">Révoquer</button>`;
+
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-slate-800/40 transition";
+          tr.innerHTML = `
+            <td class="py-3 px-3">
+              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${p.isOnline ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400 border border-slate-700'}">
+                <span class="w-1.5 h-1.5 rounded-full ${p.isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}"></span>
+                ${p.isOnline ? 'En ligne' : 'Inactif'}
+              </span>
+            </td>
+            <td class="py-3 px-3 font-semibold text-slate-100 flex items-center gap-1.5">
+              <span>👤</span>
+              <span>${p.alias || 'Joueur Inconnu'}</span>
+            </td>
+            <td class="py-3 px-3 font-mono text-cyan-400">${p.allowedIps}</td>
+            <td class="py-3 px-3 font-mono text-slate-400 text-[11px]">${p.endpoint}</td>
+            <td class="py-3 px-3 text-slate-300">${p.latestHandshakeHuman}</td>
+            <td class="py-3 px-3 font-mono text-[11px]">
+              <span class="text-emerald-400">⬇️ ${p.rxFormatted}</span>
+              <span class="text-slate-500 mx-1">|</span>
+              <span class="text-sky-400">⬆️ ${p.txFormatted}</span>
+            </td>
+            <td class="py-3 px-3 text-right">
+              ${actionHtml}
+            </td>
+          `;
+          peersTbody.appendChild(tr);
+        });
+
+        document.getElementById('admin-online-count').innerText = `${onlineCount} / ${peers.length}`;
+        document.getElementById('admin-badge-count').innerText = `${onlineCount}`;
+
+        const totalBytes = totalRx + totalTx;
+        let trafficStr = `${(totalBytes / 1024).toFixed(1)} Ko`;
+        if (totalBytes > 1024 * 1024 * 1024) {
+          trafficStr = `${(totalBytes / (1024 * 1024 * 1024)).toFixed(2)} Go`;
+        } else if (totalBytes > 1024 * 1024) {
+          trafficStr = `${(totalBytes / (1024 * 1024)).toFixed(1)} Mo`;
+        }
+        document.getElementById('admin-total-traffic').innerText = trafficStr;
+
+        loadPendingRequests();
+
+      } catch (err) {
+        peersTbody.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-red-400">Impossible de joindre le serveur relais VPS (${err.message})</td></tr>`;
+      } finally {
+        refreshAdminBtn.innerText = "🔄 Actualiser";
+      }
+    }
+
+    async function loadPendingRequests() {
+      try {
+        const res = await fetch('/api/admin/pending');
+        if (!res.ok) return;
+        const pending = await res.json();
+        const pendingSection = document.getElementById('pending-section');
+        const pendingList = document.getElementById('pending-list');
+        const pendingBadge = document.getElementById('pending-badge-count');
+
+        if (!pending || pending.length === 0) {
+          pendingSection.classList.add('hidden');
+          return;
+        }
+
+        pendingSection.classList.remove('hidden');
+        pendingBadge.innerText = pending.length;
+        pendingList.innerHTML = '';
+
+        pending.forEach(req => {
+          const item = document.createElement('div');
+          item.className = "flex items-center justify-between p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-xs";
+          item.innerHTML = `
+            <div class="flex items-center gap-2.5">
+              <span class="text-xl">👤</span>
+              <div>
+                <div class="font-bold text-amber-300 flex items-center gap-2">
+                  <span>${req.alias}</span>
+                  <span class="text-[10px] text-slate-400 font-normal">(${req.hostname})</span>
+                </div>
+                <div class="text-[10px] text-slate-400 font-mono">IP: ${req.clientIp}</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="approveFriend('${req.id}')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition cursor-pointer shadow-md shadow-emerald-950 flex items-center gap-1">
+                <span>✓</span> Accepter
+              </button>
+              <button onclick="rejectFriend('${req.id}')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer">
+                Refuser
+              </button>
+            </div>
+          `;
+          pendingList.appendChild(item);
+        });
+      } catch (e) {}
+    }
+
+    async function approveFriend(id) {
+      try {
+        await fetch(`/api/admin/approve?id=${encodeURIComponent(id)}`, { method: 'POST' });
+        loadAdminPeers();
+      } catch (e) {}
+    }
+
+    async function rejectFriend(id) {
+      try {
+        await fetch(`/api/admin/reject?id=${encodeURIComponent(id)}`, { method: 'POST' });
+        loadAdminPeers();
+      } catch (e) {}
+    }
+
+    async function revokeFriend(pubKey) {
+      if (!confirm("Voulez-vous vraiment révoquer l'accès WireGuard de cet ami ?")) return;
+      try {
+        await fetch(`/api/admin/revoke?pubkey=${encodeURIComponent(pubKey)}`, { method: 'POST' });
+        loadAdminPeers();
+      } catch (e) {}
+    }
+    }
+
+    // Actualisation automatique des peers si la modal est ouverte
+    setInterval(() => {
+      if (adminModal && !adminModal.classList.contains('hidden')) {
+        loadAdminPeers();
+      }
+    }, 4000);
+
+    // Heartbeat Keep-Alive immédiat vers CrazyPing.exe
+    function sendHeartbeat() {
+      fetch('/api/heartbeat', { method: 'POST' }).catch(() => {});
+    }
+    sendHeartbeat();
+    setInterval(sendHeartbeat, 1500);
+
+    // Arrêt propre dès la fermeture de la fenêtre (clic sur la croix)
+    window.addEventListener('beforeunload', () => {
+      navigator.sendBeacon('/api/exit');
+    });
+  </script>
+</body>
+</html>
