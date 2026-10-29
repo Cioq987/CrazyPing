@@ -2,7 +2,7 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.21%2B-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D6?style=flat)](https://github.com)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](#)
 [![Latency](https://img.shields.io/badge/Tahiti%20%E2%86%92%20San%20Jos%C3%A9-~108%20ms-brightgreen)](docs/ROUTING_TABLES.md)
 
 **CrazyPing** est une solution logicielle et réseau d'optimisation de latence, de stabilisation de gigue (*jitter*) et d'élimination de la perte de paquets (*packet loss*), spécialement conçue pour les liaisons sous-marines transpacifiques reliant la Polynésie française (**Tahiti**) aux centres de données nord-américains (San José / Oregon / Los Angeles).
@@ -108,6 +108,10 @@ go build -ldflags="-s -w" -o crazyping-server-linux-amd64 ./cmd/server
 
 ---
 
-## 📄 Licence et Clause de Non-Affiliation
+## 📄 Propriété Intellectuelle & Clause de Non-Affiliation
 
-CrazyPing est un projet indépendant sous licence MIT. Il n'est affilié, sponsorisé ni approuvé par aucune société éditrice de jeux ou de logiciels tiers mentionnés (Epic Games, Riot Games, Valve, NetEase, ExitLag). Tous les noms de marques et logos demeurent la propriété exclusive de leurs détenteurs respectifs.
+**CrazyPing** est un logiciel propriétaire indépendant. Copyright © 2026 CrazyPing Project. Tous droits réservés.
+
+L'utilisation de ce logiciel, de ses binaires et de son code source est strictement réservée à un cadre privé et personnel non commercial. Toute reproduction, redistribution, décompilation, modification ou exploitation commerciale sans autorisation écrite préalable est formellement interdite.
+
+Ce projet n'est affilié, sponsorisé ni approuvé par aucune société éditrice de jeux ou de solutions logicielles tierces mentionnées (Epic Games, Riot Games, Valve, NetEase, ExitLag). Tous les noms de marques et logos demeurent la propriété exclusive de leurs détenteurs respectifs.
