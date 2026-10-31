@@ -30,7 +30,7 @@ import (
 var webFiles embed.FS
 
 const (
-	AppVersion = "1.0.1"
+	AppVersion = "1.1.0"
 	GitHubRepo = "Cioq987/CrazyPing"
 	wgExePath  = `C:\Program Files\WireGuard\wireguard.exe`
 )
@@ -239,6 +239,8 @@ func (m *LiveMetrics) stopCurrentTunnels() {
 		"CrazyPing-MistfallHunter", "CrazyPing-MistfallHunter.local",
 		"CrazyPing-Valorant", "CrazyPing-Valorant.local",
 		"CrazyPing-Fortnite", "CrazyPing-Fortnite.local",
+		"CrazyPing-LoL", "CrazyPing-LoL.local",
+		"CrazyPing-Overwatch", "CrazyPing-Overwatch.local",
 	}
 	for _, t := range tunnels {
 		_ = exec.Command(wgExePath, "/uninstalltunnelservice", t).Run()
@@ -327,9 +329,33 @@ Endpoint = 146.235.218.190:51820
 AllowedIPs = 104.160.128.0/19, 162.249.72.0/22, 192.207.0.0/17, 66.23.16.0/20, 64.224.0.0/18
 PersistentKeepalive = 15
 `
+	lolTemplate := `[Interface]
+PrivateKey = %s
+Address = %s/32
+MTU = 1380
+
+[Peer]
+PublicKey = 5dRNSNB9hA8qxA00mYSXU97lFG/s3yyNGwUyhKKw8Cw=
+Endpoint = 146.235.218.190:51820
+AllowedIPs = 104.160.128.0/19, 162.249.72.0/22, 192.64.174.0/23, 192.207.0.0/17, 66.23.16.0/20, 64.224.0.0/18
+PersistentKeepalive = 15
+`
+	overwatchTemplate := `[Interface]
+PrivateKey = %s
+Address = %s/32
+MTU = 1380
+
+[Peer]
+PublicKey = 5dRNSNB9hA8qxA00mYSXU97lFG/s3yyNGwUyhKKw8Cw=
+Endpoint = 146.235.218.190:51820
+AllowedIPs = 24.105.0.0/18, 137.221.64.0/18, 37.244.0.0/18, 5.42.160.0/20, 66.40.176.0/20, 158.115.192.0/18, 34.94.0.0/16, 35.235.0.0/16, 35.236.0.0/16
+PersistentKeepalive = 15
+`
 	_ = os.WriteFile(filepath.Join(exeDir, "CrazyPing-Fortnite.local.conf"), []byte(fmt.Sprintf(fortniteTemplate, privKey, allocatedIP)), 0600)
 	_ = os.WriteFile(filepath.Join(exeDir, "CrazyPing-MistfallHunter.local.conf"), []byte(fmt.Sprintf(mistfallTemplate, privKey, allocatedIP)), 0600)
 	_ = os.WriteFile(filepath.Join(exeDir, "CrazyPing-Valorant.local.conf"), []byte(fmt.Sprintf(valorantTemplate, privKey, allocatedIP)), 0600)
+	_ = os.WriteFile(filepath.Join(exeDir, "CrazyPing-LoL.local.conf"), []byte(fmt.Sprintf(lolTemplate, privKey, allocatedIP)), 0600)
+	_ = os.WriteFile(filepath.Join(exeDir, "CrazyPing-Overwatch.local.conf"), []byte(fmt.Sprintf(overwatchTemplate, privKey, allocatedIP)), 0600)
 	return nil
 }
 
