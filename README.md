@@ -96,12 +96,16 @@ Chaque modification du serveur ou de l'application est vérifiée par sonde dire
 
 ## 📚 Documentation Technique Complète
 
-Pour approfondir les détails d'implémentation et de sécurité, consultez les guides dédiés dans le dossier [`docs/`](docs/) :
+Pour approfondir les détails d'implémentation, protocoles et sécurité, consultez les guides modulaires dans le dossier [`docs/`](docs/README.md) :
 
+- [**Index & Cartographie Documentaire**](docs/README.md) : Sommaire unifié et diagramme d'architecture système global.
 - [**Architecture Réseau et Logicielle**](docs/ARCHITECTURE.md) : Décomposition en couches (Kernel, Engine Go, UI), cycle de vie, watchdog HTTP/Beacon et protocole de contrôle.
-- [**Modèle de Sécurité et Analyse des Menaces**](docs/SECURITY.md) : Cloisonnement L3 inter-clients, cryptokey routing, enrôlement dynamique ZTNA et comparatif légal.
+- [**Flux Réseau et Protocoles**](docs/flows.md) : Format binaire 23 octets, diagrammes de séquence Mermaid (enrôlement Curve25519, télémétrie RTT, administration).
+- [**Cas d'Utilisation Système**](docs/use-cases.md) : Scénarios nominaux et d'erreur (démarrage, split-tunneling, auto-updater, arrêt sécurisé).
 - [**Tables de Routage et Split-Tunneling**](docs/ROUTING_TABLES.md) : Liste exhaustive des sous-réseaux CIDR qualifiés et calcul du MTU optimal (1380 octets).
+- [**Modèle de Sécurité et Analyse des Menaces**](docs/SECURITY.md) : Cloisonnement L3 inter-clients, cryptokey routing, enrôlement dynamique ZTNA et comparatif légal.
 - [**Guide de Déploiement et d'Exploitation**](docs/DEPLOYMENT.md) : Provisionnement du serveur Linux, configuration systemd, sysctl BBR et packaging Inno Setup.
+- [**Journal des Évolutions Logicielles**](docs/changelog.md) : Historique chronologique des versions et suivi des correctifs de résilience.
 
 ---
 

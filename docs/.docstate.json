@@ -1,0 +1,13 @@
+{
+  "last_commit": "28932d42011e75cfbe86cf6804db65e03f848672",
+  "last_sync": "2026-10-30T23:18:25-10:00",
+  "tracked_modules": [
+    "cmd/client",
+    "cmd/gui",
+    "cmd/gui/web",
+    "cmd/server",
+    "pkg/dedup",
+    "pkg/protocol",
+    "deploy"
+  ]
+}

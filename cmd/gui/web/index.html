@@ -69,6 +69,12 @@
         <span id="user-ip-label" class="text-[10px] text-cyan-400 font-mono px-1 rounded bg-cyan-900/60"></span>
       </div>
 
+      <!-- Changelog / Notes de version Button -->
+      <button id="open-changelog-btn" title="Voir l'historique et les nouveautés de version" class="px-2.5 py-1.5 rounded-xl text-xs font-medium glass hover:border-cyan-500/40 text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer">
+        <span>📜</span>
+        <span class="font-mono text-cyan-400" id="current-version-pill">v1.1.0</span>
+      </button>
+
       <!-- Admin Button (Affiché uniquement si admin.key est présent) -->
       <button id="admin-toggle-btn" class="hidden px-3 py-1.5 rounded-xl text-xs font-semibold bg-violet-950/70 text-violet-300 border border-violet-700/60 hover:bg-violet-900/60 transition flex items-center gap-2 cursor-pointer shadow-lg shadow-violet-950/50">
         <span>🛡️</span>
@@ -105,6 +111,10 @@
       </div>
     </div>
     <div class="flex items-center gap-2">
+      <button id="btn-view-notes" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-cyan-950/80 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-500/40 transition cursor-pointer flex items-center gap-1.5">
+        <span>📖</span>
+        <span>Voir les nouveautés</span>
+      </button>
       <button id="btn-apply-update" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition cursor-pointer shadow-lg shadow-cyan-950 flex items-center gap-1.5">
         <span>⚡</span>
         <span id="btn-apply-update-text">Mettre à jour maintenant</span>
@@ -324,6 +334,77 @@
             <!-- Rempli dynamiquement -->
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Notes de Mise à Jour (Avant déclenchement) -->
+  <div id="update-notes-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-6">
+    <div class="glass w-full max-w-2xl p-6 rounded-3xl border border-cyan-500/40 shadow-2xl shadow-cyan-950/80 flex flex-col max-h-[85vh]">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-cyan-950 border border-cyan-500/50 flex items-center justify-center text-xl shadow-lg shadow-cyan-500/20">
+            ✨
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-base font-extrabold text-white">Nouveautés de la Version</h2>
+              <span id="modal-update-tag" class="text-xs px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-700 font-mono">v1.1.0</span>
+            </div>
+            <p id="modal-update-title" class="text-xs text-slate-400">Notes officielles de la mise à jour</p>
+          </div>
+        </div>
+        <button id="close-update-notes-btn" class="text-slate-400 hover:text-white px-2.5 py-1 rounded-lg bg-slate-800/60 hover:bg-slate-700 transition cursor-pointer text-xs font-bold">
+          ✕
+        </button>
+      </div>
+
+      <div class="my-4 overflow-y-auto flex-1 pr-2 space-y-3 text-xs text-slate-200 font-sans leading-relaxed" id="modal-update-body">
+        <!-- Rempli dynamiquement -->
+      </div>
+
+      <div class="pt-4 border-t border-slate-800 flex items-center justify-between">
+        <span class="text-[11px] text-slate-400">L'application redémarrera automatiquement après l'installation.</span>
+        <div class="flex items-center gap-2">
+          <button id="btn-modal-cancel-update" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition cursor-pointer">
+            Plus tard
+          </button>
+          <button id="btn-modal-apply-update" class="px-4 py-2 rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition cursor-pointer shadow-lg shadow-cyan-950 flex items-center gap-1.5">
+            <span>⚡</span>
+            <span>Installer maintenant</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Historique / Changelog Complet (Consultable à tout moment) -->
+  <div id="changelog-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-6">
+    <div class="glass w-full max-w-3xl p-6 rounded-3xl border border-slate-700/60 shadow-2xl flex flex-col max-h-[85vh]">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl">
+            📜
+          </div>
+          <div>
+            <h2 class="text-base font-extrabold text-white">Journal des Évolutions Logicielles</h2>
+            <p class="text-xs text-slate-400">Historique complet des versions et des correctifs de CrazyPing</p>
+          </div>
+        </div>
+        <button id="close-changelog-btn" class="text-slate-400 hover:text-white px-2.5 py-1 rounded-lg bg-slate-800/60 hover:bg-slate-700 transition cursor-pointer text-xs font-bold">
+          ✕
+        </button>
+      </div>
+
+      <div class="my-4 overflow-y-auto flex-1 pr-2 space-y-4 text-xs text-slate-300 font-sans leading-relaxed" id="changelog-content-body">
+        <div class="text-center py-8 text-slate-500">Chargement de l'historique...</div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+        <span>SemVer vMAJOR.MINOR.PATCH</span>
+        <button id="btn-close-changelog-bottom" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium cursor-pointer transition">
+          Fermer
+        </button>
       </div>
     </div>
   </div>
@@ -625,7 +706,10 @@
       try {
         refreshAdminBtn.innerText = "Chargement...";
         const res = await fetch('/api/admin/peers');
-        if (!res.ok) throw new Error("Erreur");
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || `Erreur HTTP ${res.status}`);
+        }
         const raw = await res.json();
         const peers = Array.isArray(raw) ? raw : [raw];
 
@@ -840,13 +924,117 @@
 
     checkIdentity();
 
+    // Gestion du Changelog et des Notes de Version
+    const changelogModal = document.getElementById('changelog-modal');
+    const updateNotesModal = document.getElementById('update-notes-modal');
+    const openChangelogBtn = document.getElementById('open-changelog-btn');
+    const closeChangelogBtn = document.getElementById('close-changelog-btn');
+    const btnCloseChangelogBottom = document.getElementById('btn-close-changelog-bottom');
+    const closeUpdateNotesBtn = document.getElementById('close-update-notes-btn');
+    const btnModalCancelUpdate = document.getElementById('btn-modal-cancel-update');
+    const btnModalApplyUpdate = document.getElementById('btn-modal-apply-update');
+    const btnViewNotes = document.getElementById('btn-view-notes');
+
+    function formatMarkdownToHtml(md) {
+      if (!md) return '<p class="text-slate-400 italic">Aucune note de version renseignée.</p>';
+      const lines = md.split('\n');
+      let html = '';
+      let inList = false;
+
+      lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          if (inList) { html += '</ul>'; inList = false; }
+          return;
+        }
+
+        if (trimmed.startsWith('### ')) {
+          if (inList) { html += '</ul>'; inList = false; }
+          html += `<h4 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mt-3 mb-1.5">${trimmed.substring(4)}</h4>`;
+        } else if (trimmed.startsWith('## ')) {
+          if (inList) { html += '</ul>'; inList = false; }
+          html += `<h3 class="text-sm font-extrabold text-white mt-4 mb-2 pb-1 border-b border-slate-800">${trimmed.substring(3)}</h3>`;
+        } else if (trimmed.startsWith('# ')) {
+          if (inList) { html += '</ul>'; inList = false; }
+          html += `<h2 class="text-base font-black text-cyan-300 mt-2 mb-3">${trimmed.substring(2)}</h2>`;
+        } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+          if (!inList) { html += '<ul class="space-y-1.5 pl-4 list-disc list-outside text-slate-300">'; inList = true; }
+          let content = trimmed.substring(2);
+          content = content.replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-100">$1</strong>');
+          content = content.replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 rounded bg-slate-800 font-mono text-[11px] text-cyan-300">$1</code>');
+          html += `<li>${content}</li>`;
+        } else {
+          if (inList) { html += '</ul>'; inList = false; }
+          let content = trimmed;
+          content = content.replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-100">$1</strong>');
+          content = content.replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 rounded bg-slate-800 font-mono text-[11px] text-cyan-300">$1</code>');
+          html += `<p class="text-slate-300 mb-1.5">${content}</p>`;
+        }
+      });
+      if (inList) html += '</ul>';
+      return html;
+    }
+
+    async function loadChangelog() {
+      const container = document.getElementById('changelog-content-body');
+      try {
+        const res = await fetch('/api/changelog');
+        if (!res.ok) throw new Error("Changelog non disponible");
+        const md = await res.text();
+        container.innerHTML = formatMarkdownToHtml(md);
+      } catch (e) {
+        container.innerHTML = `<div class="text-rose-400 py-4 text-center">Impossible de charger le changelog (${e.message})</div>`;
+      }
+    }
+
+    if (openChangelogBtn) {
+      openChangelogBtn.onclick = () => {
+        changelogModal.classList.remove('hidden');
+        loadChangelog();
+      };
+    }
+    if (closeChangelogBtn) closeChangelogBtn.onclick = () => changelogModal.classList.add('hidden');
+    if (btnCloseChangelogBottom) btnCloseChangelogBottom.onclick = () => changelogModal.classList.add('hidden');
+    if (changelogModal) {
+      changelogModal.onclick = (e) => {
+        if (e.target === changelogModal) changelogModal.classList.add('hidden');
+      };
+    }
+
     // Module de Mise à Jour Automatique (Live Auto-Updater)
+    let activeUpdateInfo = null;
+
+    async function applyUpdate(downloadUrl, targetBtn) {
+      if (!downloadUrl) return;
+      targetBtn.disabled = true;
+      const originalText = targetBtn.innerHTML;
+      targetBtn.innerHTML = `<span>⏳</span><span>Téléchargement...</span>`;
+      try {
+        const applyRes = await fetch('/api/update/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: downloadUrl })
+        });
+        if (!applyRes.ok) throw new Error("Erreur serveur lors de la mise à jour");
+        targetBtn.innerHTML = `<span>✓</span><span>Redémarrage en cours...</span>`;
+      } catch (err) {
+        alert("Erreur lors de la mise à jour : " + err.message);
+        targetBtn.innerHTML = originalText;
+        targetBtn.disabled = false;
+      }
+    }
+
     async function checkForUpdates() {
       try {
         const res = await fetch('/api/update/check');
         if (!res.ok) return;
         const data = await res.json();
+        if (data && data.currentVersion) {
+          const pill = document.getElementById('current-version-pill');
+          if (pill) pill.innerText = `v${data.currentVersion}`;
+        }
         if (data && data.hasUpdate) {
+          activeUpdateInfo = data;
           const banner = document.getElementById('update-banner');
           const verLabel = document.getElementById('update-version-label');
           const nameLabel = document.getElementById('update-name-label');
@@ -855,29 +1043,42 @@
           banner.classList.remove('hidden');
 
           const btnApply = document.getElementById('btn-apply-update');
-          const btnText = document.getElementById('btn-apply-update-text');
-          btnApply.onclick = async () => {
-            btnApply.disabled = true;
-            btnText.innerText = "Téléchargement en cours...";
-            try {
-              const applyRes = await fetch('/api/update/apply', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: data.downloadUrl })
-              });
-              if (!applyRes.ok) throw new Error("Erreur serveur lors de la mise à jour");
-              btnText.innerText = "✓ Redémarrage pour installation...";
-            } catch (err) {
-              btnText.innerText = "Erreur - Réessayer";
-              btnApply.disabled = false;
-            }
+          btnApply.onclick = () => {
+            // Ouvre d'abord les notes de version pour transparence avant installation
+            showUpdateNotesModal(data);
           };
+
+          if (btnViewNotes) {
+            btnViewNotes.onclick = () => {
+              showUpdateNotesModal(data);
+            };
+          }
 
           document.getElementById('btn-dismiss-update').onclick = () => {
             banner.classList.add('hidden');
           };
         }
       } catch (e) {}
+    }
+
+    function showUpdateNotesModal(data) {
+      document.getElementById('modal-update-tag').innerText = data.latestVersion;
+      document.getElementById('modal-update-title').innerText = data.releaseName || "Mise à jour CrazyPing";
+      const body = document.getElementById('modal-update-body');
+      body.innerHTML = formatMarkdownToHtml(data.releaseNotes);
+      updateNotesModal.classList.remove('hidden');
+
+      btnModalApplyUpdate.onclick = () => {
+        applyUpdate(data.downloadUrl, btnModalApplyUpdate);
+      };
+    }
+
+    if (closeUpdateNotesBtn) closeUpdateNotesBtn.onclick = () => updateNotesModal.classList.add('hidden');
+    if (btnModalCancelUpdate) btnModalCancelUpdate.onclick = () => updateNotesModal.classList.add('hidden');
+    if (updateNotesModal) {
+      updateNotesModal.onclick = (e) => {
+        if (e.target === updateNotesModal) updateNotesModal.classList.add('hidden');
+      };
     }
 
     // Vérification des mises à jour 2.5 secondes après le lancement
@@ -896,6 +1097,17 @@
     }
     sendHeartbeat();
     setInterval(sendHeartbeat, 1500);
+
+    // Réveil immédiat du heartbeat dès que la fenêtre reprend le focus ou devient visible
+    window.addEventListener('focus', sendHeartbeat);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        sendHeartbeat();
+        if (adminModal && !adminModal.classList.contains('hidden')) {
+          loadAdminPeers();
+        }
+      }
+    });
 
     // Arrêt propre dès la fermeture de la fenêtre (clic sur la croix)
     window.addEventListener('beforeunload', () => {

@@ -564,6 +564,16 @@ func main() {
 		_ = json.NewEncoder(w).Encode(info)
 	})
 
+	mux.HandleFunc("/api/changelog", func(w http.ResponseWriter, r *http.Request) {
+		data, err := webFiles.ReadFile("web/changelog.md")
+		if err != nil {
+			http.Error(w, "Changelog introuvable", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = w.Write(data)
+	})
+
 	mux.HandleFunc("/api/update/apply", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Méthode non autorisée", http.StatusMethodNotAllowed)
@@ -740,15 +750,15 @@ func main() {
 		}()
 	})
 
-	// Watchdog : Arrête CrazyPing UNIQUEMENT si l'interface a été ouverte puis fermée
+	// Watchdog : Arrête CrazyPing UNIQUEMENT si l'interface a été fermée
+	// Tolérance de 30 secondes pour résister au throttling d'arrière-plan des navigateurs
 	go func() {
-		// Délai initial généreux de 20s pour laisser le temps au navigateur de charger
 		time.Sleep(20 * time.Second)
-		ticker := time.NewTicker(2 * time.Second)
+		ticker := time.NewTicker(3 * time.Second)
 		for range ticker.C {
 			if atomic.LoadInt32(&hasConnected) == 1 {
 				last := atomic.LoadInt64(&lastHeartbeat)
-				if time.Now().Unix()-last > 5 {
+				if time.Now().Unix()-last > 30 {
 					metrics.stopCurrentTunnels()
 					os.Exit(0)
 				}
@@ -883,13 +893,6 @@ func queryVpsAdminAction(relayHost string, relayPort int, adminToken, action, id
 	if err != nil {
 		return nil, err
 	}
-	conn, err := net.DialUDP("udp", nil, rAddr)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-
-	_ = conn.SetDeadline(time.Now().Add(2500 * time.Millisecond))
 
 	payload, _ := json.Marshal(map[string]string{
 		"action": action,
@@ -904,20 +907,40 @@ func queryVpsAdminAction(relayHost string, relayPort int, adminToken, action, id
 		Timestamp: time.Now().UnixNano(),
 		Payload:   payload,
 	}
-	if _, err := conn.Write(req.Encode()); err != nil {
-		return nil, err
-	}
+	enc := req.Encode()
 
-	buf := make([]byte, 65535)
-	for {
-		n, err := conn.Read(buf)
+	// Tentative avec retry (2 essais, timeout 3s chacun) pour absorber les fluctuations transitoires
+	var lastErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		conn, err := net.DialUDP("udp", nil, rAddr)
 		if err != nil {
-			return nil, err
-		}
-		pkt, err := protocol.Decode(buf[:n])
-		if err != nil || pkt.Type != protocol.TypeAdminResp {
+			lastErr = err
 			continue
 		}
-		return pkt.Payload, nil
+
+		_ = conn.SetDeadline(time.Now().Add(3000 * time.Millisecond))
+		if _, err := conn.Write(enc); err != nil {
+			_ = conn.Close()
+			lastErr = err
+			continue
+		}
+
+		buf := make([]byte, 65535)
+		for {
+			n, err := conn.Read(buf)
+			if err != nil {
+				lastErr = err
+				break
+			}
+			pkt, err := protocol.Decode(buf[:n])
+			if err != nil || pkt.Type != protocol.TypeAdminResp {
+				continue
+			}
+			_ = conn.Close()
+			return pkt.Payload, nil
+		}
+		_ = conn.Close()
 	}
+
+	return nil, fmt.Errorf("délai de réponse VPS dépassé: %w", lastErr)
 }
