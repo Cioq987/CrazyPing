@@ -2,7 +2,7 @@
 ; Génère CrazyPing-Setup.exe avec privilèges d'élévation UAC
 
 #define MyAppName "CrazyPing"
-#define MyAppVersion "1.1.1"
+#define MyAppVersion "1.2.0"
 #define MyAppPublisher "CrazyPing Project"
 #define MyAppURL "https://github.com"
 #define MyAppExeName "CrazyPing.exe"

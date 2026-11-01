@@ -30,7 +30,7 @@ import (
 var webFiles embed.FS
 
 const (
-	AppVersion = "1.1.1"
+	AppVersion = "1.2.0"
 	GitHubRepo = "Cioq987/CrazyPing"
 	wgExePath  = `C:\Program Files\WireGuard\wireguard.exe`
 )
@@ -166,6 +166,10 @@ type LiveMetrics struct {
 	TunnelActive     bool     `json:"tunnelActive"`
 	ActiveGame       string   `json:"activeGame"`
 	ActiveConf       string   `json:"activeConf"`
+	AutoDetectEnabled bool    `json:"autoDetectEnabled"`
+	DetectedGame      string  `json:"detectedGame"`
+	DetectedExe       string  `json:"detectedExe"`
+	AutoTriggered     bool    `json:"autoTriggered"`
 	IsAdmin          bool     `json:"isAdmin"`
 	Logs             []string `json:"logs"`
 	lastRtt          float64
@@ -247,6 +251,7 @@ func (m *LiveMetrics) stopCurrentTunnels() {
 	}
 	m.mu.Lock()
 	m.TunnelActive = false
+	m.AutoTriggered = false
 	m.mu.Unlock()
 	m.AppendLog("Tunnel Wintun arrêté — Réseau normal restauré")
 }
@@ -459,22 +464,24 @@ func main() {
 	ident := loadClientIdentity(exeDir, isAdmin)
 
 	metrics := &LiveMetrics{
-		MinRtt:       104.8,
-		MaxRtt:       112.1,
-		CurrentRtt:   108.0,
-		Jitter:       0.3,
-		VpsHost:      fmt.Sprintf("%s:%d", *relayHost, *relayPort),
-		IsConnected:  true,
-		TunnelActive: false,
-		ActiveGame:   "Mistfall Hunter",
-		ActiveConf:   "CrazyPing-MistfallHunter",
-		IsAdmin:      isAdmin,
-		Logs:         make([]string, 0, 60),
+		MinRtt:            104.8,
+		MaxRtt:            112.1,
+		CurrentRtt:        108.0,
+		Jitter:            0.3,
+		VpsHost:           fmt.Sprintf("%s:%d", *relayHost, *relayPort),
+		IsConnected:       true,
+		TunnelActive:      false,
+		ActiveGame:        "Mistfall Hunter",
+		ActiveConf:        "CrazyPing-MistfallHunter",
+		AutoDetectEnabled: true,
+		IsAdmin:           isAdmin,
+		Logs:              make([]string, 0, 60),
 	}
 
 	metrics.AppendLog("CrazyPing Tahiti Optimizer v2.0 démarré")
 	metrics.AppendLog("Moteur WireGuard/Wintun intégré directement")
 	metrics.AppendLog("Liaison physique Honotua vers 146.235.218.190 prête")
+	metrics.AppendLog("Auto-Détection des jeux activée en arrière-plan")
 	metrics.AppendLog("Profil par défaut : Mistfall Hunter")
 	if isAdmin {
 		metrics.AppendLog("Mode Administrateur activé : Superviseur VPS Honotua")
@@ -482,6 +489,9 @@ func main() {
 
 	// Pings réguliers vers le VPS
 	go startVpsPinger(*relayHost, *relayPort, metrics)
+
+	// Surveillance active des processus de jeux Windows
+	metrics.startProcessWatcher()
 
 	// Heartbeat régulier dans les logs
 	go func() {
@@ -629,11 +639,32 @@ func main() {
 		}
 
 		metrics.mu.Lock()
+		metrics.AutoTriggered = false // Débrayage manuel : la session manuelle prime
 		state := metrics.TunnelActive
 		metrics.mu.Unlock()
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]bool{"active": state})
+	})
+
+	mux.HandleFunc("/api/autodetect/toggle", func(w http.ResponseWriter, r *http.Request) {
+		metrics.mu.Lock()
+		metrics.AutoDetectEnabled = !metrics.AutoDetectEnabled
+		state := metrics.AutoDetectEnabled
+		if !state {
+			metrics.DetectedGame = ""
+			metrics.DetectedExe = ""
+		}
+		metrics.mu.Unlock()
+
+		if state {
+			metrics.AppendLog("[Auto-Détection] Surveillance des processus activée")
+		} else {
+			metrics.AppendLog("[Auto-Détection] Surveillance des processus mise en pause")
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]bool{"autoDetectEnabled": state})
 	})
 
 	mux.HandleFunc("/api/select-game", func(w http.ResponseWriter, r *http.Request) {

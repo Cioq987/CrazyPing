@@ -6,6 +6,24 @@ La numérotation des versions respecte les principes du **Semantic Versioning (S
 
 ---
 
+## [1.2.0] - 2026-11-01
+
+### Nouvelles Fonctionnalités
+- **Auto-Détection Native des Jeux & Tunneling Automatique** :
+  - Intégration d'un module de surveillance d'arrière-plan haute performance utilisant les APIs Win32 natives (`CreateToolhelp32Snapshot`).
+  - Détection automatique et transparente de l'ouverture des jeux supportés (*Valorant*, *Fortnite*, *Mistfall Hunter*, *League of Legends*, *Overwatch 2*).
+  - Démarrage automatique du tunnel d'optimisation Wintun dès la détection de l'exécutable de jeu, sans aucune action requise de la part du joueur.
+  - Bascule automatique de profil réseau si le joueur change de titre au cours de sa session.
+- **Période de Grâce Anti-Flapping (30 secondes)** :
+  - Maintien du tunnel actif pendant 30 secondes lors de la fermeture d'un jeu ou d'un rechargement de carte pour prévenir toute coupure de connexion intempestive.
+  - Restauration automatique du routage internet standard à l'issue de la période de grâce si aucune session de jeu n'est active.
+- **Contrôle & Télémétrie dans l'Interface** :
+  - Ajout d'un commutateur d'activation/désactivation de l'auto-détection dans le panneau de configuration.
+  - Badge d'état dynamique en temps réel indiquant l'état de veille ou le processus de jeu actuellement intercepté.
+  - Priorité donnée aux actions manuelles de l'utilisateur en cas de débrayage volontaire.
+
+---
+
 ## [1.1.1] - 2026-10-31
 
 ### Améliorations de Résilience & Robustesse Réseau

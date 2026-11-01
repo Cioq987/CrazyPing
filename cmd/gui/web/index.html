@@ -192,6 +192,18 @@
           <span>⚙️</span> Paramètres Tahiti
         </h2>
 
+        <!-- Auto-Detect Switch -->
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/40 mb-3 border border-emerald-500/20">
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs font-semibold text-slate-200">Auto-Détection Jeux</span>
+              <span id="auto-detect-badge" class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">En veille</span>
+            </div>
+            <div class="text-[10px] text-slate-400" id="auto-detect-sub">Active le tunnel au lancement d'un jeu</div>
+          </div>
+          <input type="checkbox" id="autodetect-toggle" checked class="w-5 h-5 accent-emerald-500 rounded cursor-pointer">
+        </div>
+
         <!-- Multipath Switch -->
         <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/40 mb-3">
           <div>
@@ -596,6 +608,19 @@
     const btnText = document.getElementById('btn-text');
     const statusText = document.getElementById('tunnel-status-text');
 
+    const autoDetectToggle = document.getElementById('autodetect-toggle');
+    if (autoDetectToggle) {
+      autoDetectToggle.onchange = async () => {
+        try {
+          const res = await fetch('/api/autodetect/toggle', { method: 'POST' });
+          if (res.ok) {
+            const d = await res.json();
+            autoDetectToggle.checked = d.autoDetectEnabled;
+          }
+        } catch (e) {}
+      };
+    }
+
     btn.onclick = async () => {
       try {
         btnText.innerText = "Action en cours...";
@@ -658,6 +683,40 @@
           // Mise a jour de l'etat du bouton
           if (data.tunnelActive !== undefined) {
             updateButtonState(data.tunnelActive);
+          }
+
+          // Mise a jour de l'indicateur d'auto-detection
+          const autoBadge = document.getElementById('auto-detect-badge');
+          const autoSub = document.getElementById('auto-detect-sub');
+          if (autoDetectToggle && data.autoDetectEnabled !== undefined) {
+            autoDetectToggle.checked = data.autoDetectEnabled;
+          }
+          if (autoBadge && autoSub) {
+            if (!data.autoDetectEnabled) {
+              autoBadge.innerText = 'Désactivé';
+              autoBadge.className = 'text-[9px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 font-mono';
+              autoSub.innerText = 'Surveillance en pause';
+            } else if (data.detectedGame) {
+              autoBadge.innerText = 'JEU DÉTECTÉ';
+              autoBadge.className = 'text-[9px] px-1.5 py-0.5 rounded bg-emerald-500 text-slate-900 font-bold font-mono animate-pulse';
+              autoSub.innerText = `${data.detectedGame} (${data.detectedExe || 'En cours'})`;
+            } else {
+              autoBadge.innerText = 'En veille';
+              autoBadge.className = 'text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono';
+              autoSub.innerText = 'Active le tunnel au lancement d\'un jeu';
+            }
+          }
+
+          // Synchronisation visuelle du jeu actif si déclenché par l'auto-détection
+          if (data.activeGame && (!selectedGame || selectedGame.name !== data.activeGame)) {
+            const matchedGame = games.find(g => g.name.toLowerCase() === data.activeGame.toLowerCase());
+            if (matchedGame) {
+              document.querySelectorAll('.game-card').forEach(c => c.classList.remove('active'));
+              const activeCard = document.getElementById(`card-${matchedGame.id}`);
+              if (activeCard) activeCard.classList.add('active');
+              selectedGame = matchedGame;
+              document.getElementById('selected-game-label').innerText = `${matchedGame.name}`;
+            }
           }
 
           // Mise a jour du graphique
