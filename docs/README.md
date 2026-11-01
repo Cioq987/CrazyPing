@@ -12,13 +12,13 @@ La documentation est organisée de manière modulaire selon les domaines d'ingé
 
 | Document | Périmètre Technique |
 | :--- | :--- |
-| **[Architecture Globale](docs/ARCHITECTURE.md)** | Topologie hybride client/relais, stack technique Go, pilote virtuel L3 Wintun, WebView native et isolation noyau. |
-| **[Flux & Protocoles](docs/flows.md)** | Protocoles binaires, diagrammes de séquence Mermaid (enrôlement Curve25519, mesure RTT, administration distante). |
-| **[Cas d'Utilisation](docs/use-cases.md)** | Déroulement nominal et gestion des erreurs des scénarios opérationnels (démarrage, split-tunneling, watchdog). |
-| **[Routage & Split-Tunneling](docs/ROUTING_TABLES.md)** | Tables CIDR par jeu (Valorant, Fortnite, LoL, Overwatch, etc.), calcul du MTU optimal (1380 octets) et politiques de routage. |
-| **[Déploiement & Exploitation](docs/DEPLOYMENT.md)** | Durcissement système Linux (sysctl, BBR, iptables), services systemd, compilation binaire et packaging Windows Inno Setup. |
-| **[Modèle de Sécurité](docs/SECURITY.md)** | Architecture Zero-Trust, chiffrement WireGuard Noise_IK, isolation L3 inter-clients, mitigation des attaques UDP et anti-tampering. |
-| **[Historique des Versions](docs/changelog.md)** | Suivi chronologique des versions, ruptures d'API, ajouts de protocoles et évolutions d'infrastructure. |
+| **[Architecture Globale](ARCHITECTURE.md)** | Topologie hybride client/relais, stack technique Go, pilote virtuel L3 Wintun, WebView native et isolation noyau. |
+| **[Flux & Protocoles](flows.md)** | Protocoles binaires, diagrammes de séquence Mermaid (enrôlement Curve25519, mesure RTT, administration distante). |
+| **[Cas d'Utilisation](use-cases.md)** | Déroulement nominal et gestion des erreurs des scénarios opérationnels (démarrage, split-tunneling, watchdog). |
+| **[Routage & Split-Tunneling](ROUTING_TABLES.md)** | Tables CIDR par jeu (Valorant, Fortnite, LoL, Overwatch, etc.), calcul du MTU optimal (1380 octets) et politiques de routage. |
+| **[Déploiement & Exploitation](DEPLOYMENT.md)** | Durcissement système Linux (sysctl, BBR, iptables), services systemd, compilation binaire et packaging Windows Inno Setup. |
+| **[Modèle de Sécurité](SECURITY.md)** | Architecture Zero-Trust, chiffrement WireGuard Noise_IK, isolation L3 inter-clients, mitigation des attaques UDP et anti-tampering. |
+| **[Historique des Versions](changelog.md)** | Suivi chronologique des versions, ruptures d'API, ajouts de protocoles et évolutions d'infrastructure. |
 
 ---
 

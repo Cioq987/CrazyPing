@@ -72,7 +72,7 @@
       <!-- Changelog / Notes de version Button -->
       <button id="open-changelog-btn" title="Voir l'historique et les nouveautés de version" class="px-2.5 py-1.5 rounded-xl text-xs font-medium glass hover:border-cyan-500/40 text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer">
         <span>📜</span>
-        <span class="font-mono text-cyan-400" id="current-version-pill">v1.1.0</span>
+        <span class="font-mono text-cyan-400" id="current-version-pill">v1.1.1</span>
       </button>
 
       <!-- Admin Button (Affiché uniquement si admin.key est présent) -->
@@ -977,13 +977,39 @@
 
     async function loadChangelog() {
       const container = document.getElementById('changelog-content-body');
+      container.innerHTML = '<div class="text-center py-8 text-slate-500">Chargement de l\'historique...</div>';
       try {
         const res = await fetch('/api/changelog');
-        if (!res.ok) throw new Error("Changelog non disponible");
+        if (!res.ok) throw new Error("API locale non disponible");
         const md = await res.text();
         container.innerHTML = formatMarkdownToHtml(md);
       } catch (e) {
-        container.innerHTML = `<div class="text-rose-400 py-4 text-center">Impossible de charger le changelog (${e.message})</div>`;
+        // Fallback résilient : interrogation directe de l'API GitHub Releases si le serveur local n'a pas encore la route
+        try {
+          const ghRes = await fetch('https://api.github.com/repos/Cioq987/CrazyPing/releases');
+          if (ghRes.ok) {
+            const releases = await ghRes.json();
+            if (Array.isArray(releases) && releases.length > 0) {
+              let combinedMd = '# Historique des Mises à Jour\n\n';
+              releases.forEach(rel => {
+                combinedMd += `## [${rel.tag_name}] - ${rel.name || rel.tag_name}\n\n`;
+                combinedMd += (rel.body || 'Mise à jour standard et optimisations de performance.') + '\n\n---\n\n';
+              });
+              container.innerHTML = formatMarkdownToHtml(combinedMd);
+              return;
+            }
+          }
+        } catch (ghErr) {}
+
+        container.innerHTML = `
+          <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-slate-300 space-y-2">
+            <h3 class="text-sm font-bold text-cyan-400">CrazyPing v1.1.1</h3>
+            <p class="text-xs text-slate-400">Historique complet consultable directement sur GitHub Releases.</p>
+            <a href="https://github.com/Cioq987/CrazyPing/releases" target="_blank" class="inline-block px-3 py-1.5 rounded-xl bg-cyan-950 text-cyan-300 border border-cyan-800 hover:bg-cyan-900 text-xs font-semibold transition">
+              Consulter sur GitHub Releases &rarr;
+            </a>
+          </div>
+        `;
       }
     }
 

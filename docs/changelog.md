@@ -6,7 +6,7 @@ La numérotation des versions respecte les principes du **Semantic Versioning (S
 
 ---
 
-## [Unreleased / En cours de développement]
+## [1.1.1] - 2026-10-31
 
 ### Améliorations de Résilience & Robustesse Réseau
 - **Watchdog Anti-Throttling** :
@@ -15,8 +15,9 @@ La numérotation des versions respecte les principes du **Semantic Versioning (S
 - **Résilience des Requêtes Administratives UDP** :
   - Implémentation d'un mécanisme de re-tentative automatique (2 essais consécutifs, timeout de 3 000 ms par tentative) pour les échanges de contrôle administratif `queryVpsAdminAction`.
   - Absorption complète des pertes transitoires de paquets sur le câble sous-marin Honotua lors de l'interrogation de la supervision VPS.
-- **Amélioration du Diagnostic UI** :
-  - Remontée explicite des messages d'erreur HTTP détaillés dans la modale d'administration en cas d'incident d'authentification ou de connectivité.
+- **Interface & Transparence des Versions** :
+  - Intégration d'un visualiseur de changelog interactif directement accessible dans l'application avec fallback sur l'API GitHub.
+  - Présentation automatique des Release Notes dans une modale dédiée avant tout déclenchement de mise à jour.
 
 ---
 
