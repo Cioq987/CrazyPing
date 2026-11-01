@@ -390,6 +390,21 @@
     </div>
   </div>
 
+  <!-- Transition Overlay de Mise à Jour -->
+  <div id="updating-overlay" class="fixed inset-0 bg-slate-950/95 backdrop-blur-xl z-50 hidden flex flex-col items-center justify-center p-6 text-center">
+    <div class="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-400/30 flex items-center justify-center text-3xl mb-4 animate-bounce">
+      🚀
+    </div>
+    <h2 class="text-xl font-bold text-white mb-2">Mise à jour en cours d'application</h2>
+    <p class="text-xs text-slate-300 max-w-sm mb-4 leading-relaxed">
+      L'installateur déploie la nouvelle version. CrazyPing va redémarrer automatiquement dans un instant...
+    </p>
+    <div class="flex items-center gap-2 text-cyan-400 text-xs font-mono">
+      <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+      <span>Redémarrage en cours...</span>
+    </div>
+  </div>
+
   <!-- Modal Historique / Changelog Complet (Consultable à tout moment) -->
   <div id="changelog-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-6">
     <div class="glass w-full max-w-3xl p-6 rounded-3xl border border-slate-700/60 shadow-2xl flex flex-col max-h-[85vh]">
@@ -1094,6 +1109,11 @@
       targetBtn.disabled = true;
       const originalText = targetBtn.innerHTML;
       targetBtn.innerHTML = `<span>⏳</span><span>Téléchargement...</span>`;
+
+      // Masquer immédiatement la bannière pour éviter qu'elle persiste
+      const banner = document.getElementById('update-banner');
+      if (banner) banner.classList.add('hidden');
+
       try {
         const applyRes = await fetch('/api/update/apply', {
           method: 'POST',
@@ -1102,10 +1122,24 @@
         });
         if (!applyRes.ok) throw new Error("Erreur serveur lors de la mise à jour");
         targetBtn.innerHTML = `<span>✓</span><span>Redémarrage en cours...</span>`;
+
+        // Afficher l'overlay plein écran de transition
+        if (updateNotesModal) updateNotesModal.classList.add('hidden');
+        const overlay = document.getElementById('updating-overlay');
+        if (overlay) overlay.classList.remove('hidden');
+
+        // Fermer proprement la fenêtre Edge orpheline pour laisser l'installateur relancer CrazyPing
+        setTimeout(() => {
+          try {
+            window.open('', '_self', '');
+            window.close();
+          } catch (e) {}
+        }, 1500);
       } catch (err) {
         alert("Erreur lors de la mise à jour : " + err.message);
         targetBtn.innerHTML = originalText;
         targetBtn.disabled = false;
+        if (banner) banner.classList.remove('hidden');
       }
     }
 

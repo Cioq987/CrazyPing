@@ -6,6 +6,19 @@ La numérotation des versions respecte les principes du **Semantic Versioning (S
 
 ---
 
+## [1.2.1] - 2026-11-01
+
+### Correctifs & Expérience de Déploiement
+- **Relance Automatique Post-Mise à Jour** :
+  - Correction de la directive d'exécution Inno Setup (`skipifnotsilent`) pour garantir la relance automatique et sans friction de `CrazyPing.exe` à l'issue de l'installation silencieuse.
+- **Cycle de Vie de l'Interface Graphique** :
+  - Masquage immédiat de la bannière et fermeture propre de la fenêtre hôte Microsoft Edge avant l'application de la mise à jour pour éliminer l'affichage orphelin de l'ancienne version.
+  - Ajout d'un écran de transition pleine page informant l'utilisateur du redémarrage en cours.
+- **Fermeture Propre des Tunnels Réseau** :
+  - Déconnexion systématique du pilote Wintun et purge des routes temporaires avant le remplacement des fichiers système par l'installateur.
+
+---
+
 ## [1.2.0] - 2026-11-01
 
 ### Nouvelles Fonctionnalités

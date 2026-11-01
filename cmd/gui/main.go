@@ -30,7 +30,7 @@ import (
 var webFiles embed.FS
 
 const (
-	AppVersion = "1.2.0"
+	AppVersion = "1.2.1"
 	GitHubRepo = "Cioq987/CrazyPing"
 	wgExePath  = `C:\Program Files\WireGuard\wireguard.exe`
 )
@@ -108,7 +108,7 @@ func checkGitHubUpdate() (*UpdateInfo, error) {
 	}, nil
 }
 
-func downloadAndApplyUpdate(downloadURL string) error {
+func downloadAndApplyUpdate(downloadURL string, metrics *LiveMetrics) error {
 	if downloadURL == "" {
 		return fmt.Errorf("aucune URL de téléchargement fournie")
 	}
@@ -137,13 +137,18 @@ func downloadAndApplyUpdate(downloadURL string) error {
 	}
 	out.Close()
 
+	if metrics != nil {
+		metrics.AppendLog("Arrêt propre des tunnels avant application de la mise à jour...")
+		metrics.stopCurrentTunnels()
+	}
+
 	cmd := exec.Command(installerPath, "/SILENT", "/SUPPRESSMSGBOXES", "/FORCECLOSEAPPLICATIONS")
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("erreur lancement installateur: %w", err)
 	}
 
 	go func() {
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(800 * time.Millisecond)
 		os.Exit(0)
 	}()
 
@@ -604,7 +609,7 @@ func main() {
 		}
 
 		metrics.AppendLog("Téléchargement de la mise à jour en cours...")
-		if err := downloadAndApplyUpdate(downloadURL); err != nil {
+		if err := downloadAndApplyUpdate(downloadURL, metrics); err != nil {
 			http.Error(w, fmt.Sprintf("Erreur mise à jour: %v", err), http.StatusInternalServerError)
 			return
 		}

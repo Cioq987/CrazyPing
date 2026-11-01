@@ -2,7 +2,7 @@
 ; Génère CrazyPing-Setup.exe avec privilèges d'élévation UAC
 
 #define MyAppName "CrazyPing"
-#define MyAppVersion "1.2.0"
+#define MyAppVersion "1.2.1"
 #define MyAppPublisher "CrazyPing Project"
 #define MyAppURL "https://github.com"
 #define MyAppExeName "CrazyPing.exe"
@@ -53,6 +53,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilen
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Flags: nowait skipifnotsilent
 
 [Code]
 // Vérification de la présence du binaire wireguard.exe sur la machine hôte
