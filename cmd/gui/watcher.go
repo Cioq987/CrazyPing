@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -99,14 +100,23 @@ func (m *LiveMetrics) startProcessWatcher() {
 
 					m.AppendLog(fmt.Sprintf("[Auto-Détection] Processus détecté : %s -> Démarrage automatique de l'optimisation pour %s", exeName, gameDef.GameName))
 					_ = m.startTunnel(gameDef.ConfName + ".conf")
-				} else if isAutoTriggered && activeConf != gameDef.ConfName {
-					// L'utilisateur a changé de jeu en cours de route
+				} else if activeConf != gameDef.ConfName {
+					// Si le VPN Global USA était en cours, on mémorise pour le restaurer à la fin du jeu
+					if strings.Contains(strings.ToLower(activeConf), "globalvpn") {
+						m.mu.Lock()
+						m.PreviousVpnActive = true
+						m.mu.Unlock()
+						m.AppendLog(fmt.Sprintf("[Auto-Détection] Jeu détecté (%s) -> Priorité E-Sport : bascule temporaire du VPN vers le tunnel de jeu optimisé", gameDef.GameName))
+					} else {
+						m.AppendLog(fmt.Sprintf("[Auto-Détection] Nouveau jeu détecté : %s -> Bascule automatique du tunnel vers %s", exeName, gameDef.GameName))
+					}
+
 					m.mu.Lock()
 					m.ActiveGame = gameDef.GameName
 					m.ActiveConf = gameDef.ConfName
+					m.AutoTriggered = true
 					m.mu.Unlock()
 
-					m.AppendLog(fmt.Sprintf("[Auto-Détection] Nouveau jeu détecté : %s -> Bascule automatique du tunnel vers %s", exeName, gameDef.GameName))
 					_ = m.startTunnel(gameDef.ConfName + ".conf")
 				}
 			} else {
@@ -123,11 +133,24 @@ func (m *LiveMetrics) startProcessWatcher() {
 					if missedIterations == 1 {
 						m.AppendLog("[Auto-Détection] Processus de jeu fermé. Maintien du tunnel pendant 30s (chargement / reconnexion)...")
 					} else if missedIterations >= gracePeriodIterations {
-						m.AppendLog("[Auto-Détection] Délai de grâce écoulé : arrêt automatique du tunnel Wintun.")
-						m.stopCurrentTunnels()
 						m.mu.Lock()
+						wasVpn := m.PreviousVpnActive
+						m.PreviousVpnActive = false
 						m.AutoTriggered = false
+						isBlocked := m.VpnQuotaBlocked
 						m.mu.Unlock()
+
+						if wasVpn && !isBlocked {
+							m.AppendLog("[Auto-Détection] Fin de session de jeu -> Restauration automatique du VPN Global USA.")
+							m.mu.Lock()
+							m.ActiveGame = "VPN Global USA"
+							m.ActiveConf = "CrazyPing-GlobalVPN"
+							m.mu.Unlock()
+							_ = m.startTunnel("CrazyPing-GlobalVPN.conf")
+						} else {
+							m.AppendLog("[Auto-Détection] Délai de grâce écoulé : arrêt automatique du tunnel Wintun.")
+							m.stopCurrentTunnels()
+						}
 						missedIterations = 0
 					}
 				} else {

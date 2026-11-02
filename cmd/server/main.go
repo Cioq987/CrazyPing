@@ -78,6 +78,8 @@ type PeerInfo struct {
 	RxFormatted          string `json:"rxFormatted"`
 	TxFormatted          string `json:"txFormatted"`
 	Alias                string `json:"alias"`
+	VpnQuota             string `json:"vpnQuota"`
+	VpnBlocked           bool   `json:"vpnBlocked"`
 }
 
 type EnrollmentRequest struct {
@@ -309,6 +311,8 @@ func getWireGuardPeers() ([]PeerInfo, error) {
 			}
 		}
 
+		quotaStr, isBlocked := getServerPeerQuota(cleanIP)
+
 		peers = append(peers, PeerInfo{
 			PubKey:               pubKey,
 			Endpoint:             endpoint,
@@ -321,6 +325,8 @@ func getWireGuardPeers() ([]PeerInfo, error) {
 			RxFormatted:          formatBytes(rx),
 			TxFormatted:          formatBytes(tx),
 			Alias:                alias,
+			VpnQuota:             quotaStr,
+			VpnBlocked:           isBlocked,
 		})
 	}
 	return peers, nil
@@ -693,6 +699,10 @@ func main() {
 	flag.Parse()
 
 	adminToken = loadOrGenerateAdminToken()
+
+	// Initialisation du sous-système de quotas VPN et protection des jeux
+	initQuotaSubsystem()
+	startQuotaDaemon()
 
 	go startAdminHTTPServer(*adminPort)
 

@@ -2,7 +2,7 @@
 ; Génère CrazyPing-Setup.exe avec privilèges d'élévation UAC
 
 #define MyAppName "CrazyPing"
-#define MyAppVersion "1.2.1"
+#define MyAppVersion "1.3.0"
 #define MyAppPublisher "CrazyPing Project"
 #define MyAppURL "https://github.com"
 #define MyAppExeName "CrazyPing.exe"
@@ -44,6 +44,7 @@ Source: "..\CrazyPing-MistfallHunter.conf"; DestDir: "{app}"; Flags: ignoreversi
 Source: "..\CrazyPing-Valorant.conf"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\CrazyPing-LoL.conf"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\CrazyPing-Overwatch.conf"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\CrazyPing-GlobalVPN.conf"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]

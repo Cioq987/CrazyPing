@@ -339,6 +339,7 @@
               <th class="py-2.5 px-3">IP FAI (Tahiti)</th>
               <th class="py-2.5 px-3">Dernier échange</th>
               <th class="py-2.5 px-3">Données Transférées</th>
+              <th class="py-2.5 px-3">Quota VPN (Jour)</th>
               <th class="py-2.5 px-3 text-right">Action</th>
             </tr>
           </thead>
@@ -490,6 +491,7 @@
 
   <script>
     const games = [
+      { id: 'vpn-global', name: 'VPN Global USA', icon: '🌐', path: 'Navigation Web, Dev & Applications', target: 'San José, CA (IP Américaine 146.235.218.190)', conf: 'CrazyPing-GlobalVPN.conf', ready: true, isVpn: true },
       { id: 'fortnite', name: 'Fortnite', icon: '⛏️', path: 'Epic Games\\Fortnite', target: 'Epic Games / AWS NA-West', conf: 'CrazyPing-Fortnite.conf', ready: true },
       { id: 'mistfall', name: 'Mistfall Hunter', icon: '⚔️', path: 'E:\\steam\\steamapps\\common\\Mistfall Hunter', target: 'NetEase / AWS GameLift', conf: 'CrazyPing-MistfallHunter.conf', ready: true },
       { id: 'valorant', name: 'Valorant', icon: '🎯', path: 'Riot Games\\VALORANT', target: 'Riot Direct US (San José)', conf: 'CrazyPing-Valorant.conf', ready: true },
@@ -503,8 +505,9 @@
       { id: 'forza', name: 'Forza Horizon 5', icon: '🏎️', path: 'E:\\steam\\steamapps\\common\\ForzaHorizon5', target: 'Microsoft Azure US West', conf: '', ready: false },
     ];
 
-    let selectedGame = games[0]; // Fortnite par défaut
+    let selectedGame = games[0]; // VPN Global USA par défaut
     let isTunnelActive = false;
+    let isVpnBlocked = false;
     let pendingSwitchGame = null;
 
     const switchModal = document.getElementById('switch-confirm-modal');
@@ -521,6 +524,10 @@
     };
 
     function activateGameSelection(g) {
+      if (g.isVpn && isVpnBlocked) {
+        alert("Le quota journalier de 10 Go pour le VPN USA est atteint pour aujourd'hui. Il sera réinitialisé à minuit. Vos profils de jeux restent 100% illimités !");
+        return;
+      }
       document.querySelectorAll('.game-card').forEach(c => c.classList.remove('active'));
       const activeCard = document.getElementById(`card-${g.id}`);
       if (activeCard) activeCard.classList.add('active');
@@ -537,20 +544,46 @@
 
       if (g.ready) {
         card.className = `game-card glass-card p-2.5 rounded-xl cursor-pointer flex items-center justify-between gap-2 ${idx === 0 ? 'active' : ''}`;
-        card.innerHTML = `
-          <div class="flex items-center gap-2.5 overflow-hidden">
-            <span class="text-2xl shrink-0">${g.icon}</span>
-            <div class="overflow-hidden">
-              <div class="text-xs font-bold text-slate-200 truncate">${g.name}</div>
-              <div class="text-[10px] text-cyan-400 font-mono truncate">${g.target}</div>
+        
+        if (g.isVpn) {
+          card.innerHTML = `
+            <div class="flex items-center gap-2.5 overflow-hidden">
+              <span class="text-2xl shrink-0">${g.icon}</span>
+              <div class="overflow-hidden">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-bold text-slate-200 truncate">${g.name}</span>
+                  <span class="text-[9px] px-1 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono font-bold">IP US</span>
+                </div>
+                <div class="text-[10px] text-cyan-400 font-mono truncate">${g.target}</div>
+              </div>
             </div>
-          </div>
-          <span class="shrink-0 text-[10px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 rounded-full px-2 py-0.5 flex items-center gap-1 shadow-sm shadow-emerald-950">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Prêt
-          </span>
-        `;
+            <div class="text-right shrink-0">
+              <span id="vpn-status-badge" class="text-[10px] font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-500/40 rounded-full px-2 py-0.5 flex items-center gap-1 shadow-sm">
+                <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>Full-Tunnel
+              </span>
+              <div id="vpn-quota-text" class="text-[9px] font-mono text-slate-400 mt-1">Quota: 0.00 / 10 Go</div>
+            </div>
+          `;
+        } else {
+          card.innerHTML = `
+            <div class="flex items-center gap-2.5 overflow-hidden">
+              <span class="text-2xl shrink-0">${g.icon}</span>
+              <div class="overflow-hidden">
+                <div class="text-xs font-bold text-slate-200 truncate">${g.name}</div>
+                <div class="text-[10px] text-cyan-400 font-mono truncate">${g.target}</div>
+              </div>
+            </div>
+            <span class="shrink-0 text-[10px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 rounded-full px-2 py-0.5 flex items-center gap-1 shadow-sm shadow-emerald-950">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Prêt
+            </span>
+          `;
+        }
         card.onclick = () => {
           if (selectedGame.id === g.id) return;
+          if (g.isVpn && isVpnBlocked) {
+            alert("Le quota journalier de 10 Go pour le VPN USA est atteint pour aujourd'hui. Il sera réinitialisé à minuit. Vos profils de jeux restent 100% illimités !");
+            return;
+          }
           if (isTunnelActive) {
             pendingSwitchGame = g;
             document.getElementById('switch-confirm-text').innerText =
@@ -700,6 +733,33 @@
             updateButtonState(data.tunnelActive);
           }
 
+          // Mise a jour du quota VPN et état de la carte
+          if (data.vpnQuotaUsed !== undefined) {
+            isVpnBlocked = !!data.vpnQuotaBlocked;
+            const quotaText = document.getElementById('vpn-quota-text');
+            const vpnBadge = document.getElementById('vpn-status-badge');
+            const vpnCard = document.getElementById('card-vpn-global');
+            
+            if (quotaText) {
+              quotaText.innerText = `Quota: ${data.vpnQuotaUsed} / ${data.vpnQuotaLimit}`;
+            }
+            if (vpnCard) {
+              if (data.vpnQuotaBlocked) {
+                vpnCard.classList.add('opacity-40', 'grayscale');
+                if (vpnBadge) {
+                  vpnBadge.className = 'text-[9px] font-bold text-rose-400 bg-rose-950/90 border border-rose-600 rounded-full px-2 py-0.5 flex items-center gap-1';
+                  vpnBadge.innerHTML = '<span>🔒</span>Quota Atteint';
+                }
+              } else {
+                vpnCard.classList.remove('opacity-40', 'grayscale');
+                if (vpnBadge) {
+                  vpnBadge.className = 'text-[10px] font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-500/40 rounded-full px-2 py-0.5 flex items-center gap-1 shadow-sm';
+                  vpnBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>Full-Tunnel';
+                }
+              }
+            }
+          }
+
           // Mise a jour de l'indicateur d'auto-detection
           const autoBadge = document.getElementById('auto-detect-badge');
           const autoSub = document.getElementById('auto-detect-sub');
@@ -822,6 +882,9 @@
               <span class="text-emerald-400">⬇️ ${p.rxFormatted}</span>
               <span class="text-slate-500 mx-1">|</span>
               <span class="text-sky-400">⬆️ ${p.txFormatted}</span>
+            </td>
+            <td class="py-3 px-3 font-mono text-[11px] text-cyan-300">
+              ${p.vpnQuota || '0.00 Go / 10 Go'}${p.vpnBlocked ? ' <span class="text-rose-400 font-bold">(Bloqué)</span>' : ''}
             </td>
             <td class="py-3 px-3 text-right">
               ${actionHtml}

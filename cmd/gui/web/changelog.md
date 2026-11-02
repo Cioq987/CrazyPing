@@ -6,6 +6,23 @@ La numérotation des versions respecte les principes du **Semantic Versioning (S
 
 ---
 
+## [1.3.0] - 2026-11-01
+
+### Nouvelles Fonctionnalités
+- **Mode VPN Global USA (Full-Tunnel)** :
+  - Intégration d'un profil de navigation complète (`CrazyPing-GlobalVPN.conf`) avec routage `0.0.0.0/0` et DNS ultra-rapide Cloudflare (`1.1.1.1, 8.8.8.8`) attribuant l'adresse IP américaine de San José (`146.235.218.190`) à l'ensemble du trafic de la machine (Antigravity, Web, Dev, APIs).
+- **Architecture de Quota Hybride Co-Responsable (10 Go / jour)** :
+  - Garde-fou strict côté serveur Linux (`iptables` et table `ipset cp_game_cidrs`) plafonnant le trafic web non-jeu à 10 Go par joueur et par jour avec réinitialisation automatique chaque nuit à minuit (fuseau horaire de Tahiti).
+  - Préservation intégrale du trafic E-Sport : les flux de jeux vidéo sont 100% illimités et exclus du décompte du quota VPN.
+  - Ergonomie client réactive : jauge visuelle de quota en temps réel et grisement automatique de la carte avec avertissement dès épuisement du solde quotidien.
+- **Priorité E-Sport Intelligente** :
+  - Bascule instantanée du profil VPN vers le profil de jeu optimisé dès la détection d'une partie par le module d'auto-détection, garantissant zéro bufferbloat et latence minimale.
+  - Restauration automatique du VPN Global USA à la clôture de la session de jeu.
+- **Supervision Administrative Élargie** :
+  - Ajout du suivi de consommation du quota journalier VPN pour chaque pair dans la console de supervision Honotua.
+
+---
+
 ## [1.2.1] - 2026-11-01
 
 ### Correctifs & Expérience de Déploiement

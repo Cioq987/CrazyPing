@@ -30,7 +30,7 @@ import (
 var webFiles embed.FS
 
 const (
-	AppVersion = "1.2.1"
+	AppVersion = "1.3.0"
 	GitHubRepo = "Cioq987/CrazyPing"
 	wgExePath  = `C:\Program Files\WireGuard\wireguard.exe`
 )
@@ -171,10 +171,16 @@ type LiveMetrics struct {
 	TunnelActive     bool     `json:"tunnelActive"`
 	ActiveGame       string   `json:"activeGame"`
 	ActiveConf       string   `json:"activeConf"`
-	AutoDetectEnabled bool    `json:"autoDetectEnabled"`
-	DetectedGame      string  `json:"detectedGame"`
-	DetectedExe       string  `json:"detectedExe"`
-	AutoTriggered     bool    `json:"autoTriggered"`
+	AutoDetectEnabled     bool     `json:"autoDetectEnabled"`
+	DetectedGame          string   `json:"detectedGame"`
+	DetectedExe           string   `json:"detectedExe"`
+	AutoTriggered         bool     `json:"autoTriggered"`
+	VpnQuotaUsedFormatted string   `json:"vpnQuotaUsed"`
+	VpnQuotaLimitFormatted string  `json:"vpnQuotaLimit"`
+	VpnQuotaPercent       float64  `json:"vpnQuotaPercent"`
+	VpnQuotaBlocked       bool     `json:"vpnQuotaBlocked"`
+	PreviousVpnActive     bool     `json:"-"`
+	quotaTracker          *VpnQuotaTracker
 	IsAdmin          bool     `json:"isAdmin"`
 	Logs             []string `json:"logs"`
 	lastRtt          float64
@@ -227,6 +233,7 @@ func (m *LiveMetrics) startTunnel(confNameOrPath string) error {
 	m.AppendLog(fmt.Sprintf("Activation du tunnel Wintun (%s)...", tunnelName))
 
 	cmd := exec.Command(wgExePath, "/installtunnelservice", targetConfPath)
+	hideWindow(cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		m.AppendLog(fmt.Sprintf("Erreur démarrage Wintun : %v (%s)", err, strings.TrimSpace(string(out))))
@@ -245,6 +252,7 @@ func (m *LiveMetrics) startTunnel(confNameOrPath string) error {
 // stopCurrentTunnels arrête proprement tous les tunnels gérés par CrazyPing
 func (m *LiveMetrics) stopCurrentTunnels() {
 	tunnels := []string{
+		"CrazyPing-GlobalVPN", "CrazyPing-GlobalVPN.local",
 		"CrazyPing-MistfallHunter", "CrazyPing-MistfallHunter.local",
 		"CrazyPing-Valorant", "CrazyPing-Valorant.local",
 		"CrazyPing-Fortnite", "CrazyPing-Fortnite.local",
@@ -252,7 +260,9 @@ func (m *LiveMetrics) stopCurrentTunnels() {
 		"CrazyPing-Overwatch", "CrazyPing-Overwatch.local",
 	}
 	for _, t := range tunnels {
-		_ = exec.Command(wgExePath, "/uninstalltunnelservice", t).Run()
+		cmd := exec.Command(wgExePath, "/uninstalltunnelservice", t)
+		hideWindow(cmd)
+		_ = cmd.Run()
 	}
 	m.mu.Lock()
 	m.TunnelActive = false
@@ -285,8 +295,29 @@ func loadClientIdentity(exeDir string, isAdmin bool) *ClientIdentity {
 		}
 	}
 	if isAdmin {
+		privKey := ""
+		matches, _ := filepath.Glob(filepath.Join(exeDir, "CrazyPing-*.local.conf"))
+		for _, m := range matches {
+			content, err := os.ReadFile(m)
+			if err == nil {
+				for _, line := range strings.Split(string(content), "\n") {
+					line = strings.TrimSpace(line)
+					if strings.HasPrefix(line, "PrivateKey") {
+						parts := strings.SplitN(line, "=", 2)
+						if len(parts) == 2 {
+							privKey = strings.TrimSpace(parts[1])
+							break
+						}
+					}
+				}
+				if privKey != "" {
+					break
+				}
+			}
+		}
 		return &ClientIdentity{
 			Alias:       "Superviseur",
+			PrivateKey:  privKey,
 			AllocatedIP: "10.10.0.2",
 			IsEnrolled:  true,
 		}
@@ -361,11 +392,24 @@ Endpoint = 146.235.218.190:51820
 AllowedIPs = 24.105.0.0/18, 137.221.64.0/18, 37.244.0.0/18, 5.42.160.0/20, 66.40.176.0/20, 158.115.192.0/18, 34.94.0.0/16, 35.235.0.0/16, 35.236.0.0/16
 PersistentKeepalive = 15
 `
+	globalVpnTemplate := `[Interface]
+PrivateKey = %s
+Address = %s/32
+DNS = 1.1.1.1, 8.8.8.8
+MTU = 1380
+
+[Peer]
+PublicKey = 5dRNSNB9hA8qxA00mYSXU97lFG/s3yyNGwUyhKKw8Cw=
+Endpoint = 146.235.218.190:51820
+AllowedIPs = 0.0.0.0/0
+PersistentKeepalive = 15
+`
 	_ = os.WriteFile(filepath.Join(exeDir, "CrazyPing-Fortnite.local.conf"), []byte(fmt.Sprintf(fortniteTemplate, privKey, allocatedIP)), 0600)
 	_ = os.WriteFile(filepath.Join(exeDir, "CrazyPing-MistfallHunter.local.conf"), []byte(fmt.Sprintf(mistfallTemplate, privKey, allocatedIP)), 0600)
 	_ = os.WriteFile(filepath.Join(exeDir, "CrazyPing-Valorant.local.conf"), []byte(fmt.Sprintf(valorantTemplate, privKey, allocatedIP)), 0600)
 	_ = os.WriteFile(filepath.Join(exeDir, "CrazyPing-LoL.local.conf"), []byte(fmt.Sprintf(lolTemplate, privKey, allocatedIP)), 0600)
 	_ = os.WriteFile(filepath.Join(exeDir, "CrazyPing-Overwatch.local.conf"), []byte(fmt.Sprintf(overwatchTemplate, privKey, allocatedIP)), 0600)
+	_ = os.WriteFile(filepath.Join(exeDir, "CrazyPing-GlobalVPN.local.conf"), []byte(fmt.Sprintf(globalVpnTemplate, privKey, allocatedIP)), 0600)
 	return nil
 }
 
@@ -467,20 +511,31 @@ func main() {
 	}
 
 	ident := loadClientIdentity(exeDir, isAdmin)
+	if ident.IsEnrolled && ident.PrivateKey != "" {
+		_ = writeLocalGameConfigs(exeDir, ident.PrivateKey, ident.AllocatedIP)
+	}
+
+	tracker := newVpnQuotaTracker(exeDir)
+	usedStr, limStr, pct, blk := tracker.getStatus()
 
 	metrics := &LiveMetrics{
-		MinRtt:            104.8,
-		MaxRtt:            112.1,
-		CurrentRtt:        108.0,
-		Jitter:            0.3,
-		VpsHost:           fmt.Sprintf("%s:%d", *relayHost, *relayPort),
-		IsConnected:       true,
-		TunnelActive:      false,
-		ActiveGame:        "Mistfall Hunter",
-		ActiveConf:        "CrazyPing-MistfallHunter",
-		AutoDetectEnabled: true,
-		IsAdmin:           isAdmin,
-		Logs:              make([]string, 0, 60),
+		MinRtt:                 104.8,
+		MaxRtt:                 112.1,
+		CurrentRtt:             108.0,
+		Jitter:                 0.3,
+		VpsHost:                fmt.Sprintf("%s:%d", *relayHost, *relayPort),
+		IsConnected:            true,
+		TunnelActive:           false,
+		ActiveGame:             "Mistfall Hunter",
+		ActiveConf:             "CrazyPing-MistfallHunter",
+		AutoDetectEnabled:      true,
+		VpnQuotaUsedFormatted:  usedStr,
+		VpnQuotaLimitFormatted: limStr,
+		VpnQuotaPercent:        pct,
+		VpnQuotaBlocked:        blk,
+		quotaTracker:           tracker,
+		IsAdmin:                isAdmin,
+		Logs:                   make([]string, 0, 60),
 	}
 
 	metrics.AppendLog("CrazyPing Tahiti Optimizer v2.0 démarré")
@@ -497,6 +552,36 @@ func main() {
 
 	// Surveillance active des processus de jeux Windows
 	metrics.startProcessWatcher()
+
+	// Suivi du quota VPN en tâche de fond
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		for range ticker.C {
+			metrics.mu.Lock()
+			active := metrics.TunnelActive
+			conf := metrics.ActiveConf
+			metrics.mu.Unlock()
+
+			if active && strings.Contains(strings.ToLower(conf), "globalvpn") {
+				delta, err := metrics.quotaTracker.sampleVpnInterface()
+				if err == nil && delta > 0 {
+					blocked := metrics.quotaTracker.recordBytes(delta)
+					if blocked {
+						metrics.AppendLog("[Quota VPN] Limite journalière de 10 Go atteinte. Coupure automatique du VPN USA.")
+						metrics.stopCurrentTunnels()
+					}
+				}
+			}
+
+			used, lim, pct, blk := metrics.quotaTracker.getStatus()
+			metrics.mu.Lock()
+			metrics.VpnQuotaUsedFormatted = used
+			metrics.VpnQuotaLimitFormatted = lim
+			metrics.VpnQuotaPercent = pct
+			metrics.VpnQuotaBlocked = blk
+			metrics.mu.Unlock()
+		}
+	}()
 
 	// Heartbeat régulier dans les logs
 	go func() {
@@ -636,6 +721,18 @@ func main() {
 		if isActive {
 			metrics.stopCurrentTunnels()
 		} else {
+			if strings.Contains(strings.ToLower(activeConf), "globalvpn") {
+				metrics.mu.Lock()
+				blocked := metrics.VpnQuotaBlocked
+				metrics.mu.Unlock()
+				if blocked {
+					metrics.AppendLog("[Quota VPN] Impossible de démarrer : quota journalier de 10 Go atteint.")
+					w.Header().Set("Content-Type", "application/json")
+					_ = json.NewEncoder(w).Encode(map[string]any{"active": false, "error": "quota_exceeded"})
+					return
+				}
+			}
+
 			confFile := fmt.Sprintf("%s.conf", activeConf)
 			if activeConf == "" {
 				confFile = "CrazyPing-MistfallHunter.conf"
@@ -675,6 +772,17 @@ func main() {
 	mux.HandleFunc("/api/select-game", func(w http.ResponseWriter, r *http.Request) {
 		gameName := r.URL.Query().Get("game")
 		conf := r.URL.Query().Get("conf")
+
+		if strings.Contains(strings.ToLower(conf), "globalvpn") {
+			metrics.mu.Lock()
+			blocked := metrics.VpnQuotaBlocked
+			metrics.mu.Unlock()
+			if blocked {
+				metrics.AppendLog("[Quota VPN] Impossible de sélectionner le VPN USA : quota journalier de 10 Go atteint.")
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+		}
 
 		metrics.mu.Lock()
 		metrics.ActiveGame = gameName

@@ -1,6 +1,7 @@
 # Secrets & Clés d'administration
 admin.key
 client_identity.json
+vpn_quota.json
 *.key
 *.pem
 *.local.conf
