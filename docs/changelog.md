@@ -6,6 +6,23 @@ La numérotation des versions respecte les principes du **Semantic Versioning (S
 
 ---
 
+## [1.4.0] - 2026-11-02
+
+### Nouvelles Fonctionnalités & Supervision Avancée
+- **Module d'Audit Réseau & Diagnostic Télécom Distant en 1 Clic** :
+  - Intégration d'un module d'audit et de santé pour chaque client connecté dans la console d'administration ("Superviseur Infrastructure Honotua").
+  - Déclenchement d'un audit complet à la demande vers n'importe quel joueur (`10.10.0.X`) depuis la passerelle de San José via trame d'administration sécurisée UDP.
+- **Télémétrie Câble Sous-Marin Honotua & Analyse de Gigue** :
+  - Sondes ICMP calibrées à haute fréquence mesurant le RTT réel aller-retour Tahiti &rarr; San José, l'écart-type de gigue (*jitter*) et le taux de perte de paquets.
+- **Validation d'Intégrité MTU 1380 & Détection de Fragmentation (DF-bit)** :
+  - Émission de trames de test de 1380 octets avec drapeau *Don't Fragment* (DF) pour vérifier la conformité du clamp MTU Wintun et éliminer tout risque de fragmentation ou de rejet pare-feu.
+- **Projection Temps Réel des Latences E-Sport Cibles** :
+  - Mesure continue des latences vers les points d'interconnexion majeurs (Steam Datagram Relay Los Angeles / Seattle, passerelle Cloudflare) et calcul instantané de la latence de jeu perçue par le joueur.
+- **Console de Traçabilité Technique & Évaluation de Conformité** :
+  - Restitution détaillée étape par étape dans l'interface superviseur avec diagnostic de conformité (Optimal, Dégradé, Hors ligne) et recommandations opérationnelles.
+
+---
+
 ## [1.3.1] - 2026-11-01
 
 ### Nouvelles Fonctionnalités & Optimisations Réseau

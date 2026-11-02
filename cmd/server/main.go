@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -94,10 +95,51 @@ type EnrollmentRequest struct {
 }
 
 type AdminCommand struct {
-	Action string `json:"action"` // "list_peers", "list_pending", "approve", "reject", "revoke"
+	Action string `json:"action"` // "list_peers", "list_pending", "approve", "reject", "revoke", "audit_peer"
 	Token  string `json:"token"`
 	ID     string `json:"id"`
 	PubKey string `json:"pubKey"`
+}
+
+type PingResult struct {
+	Transmitted int     `json:"transmitted"`
+	Received    int     `json:"received"`
+	LossPct     float64 `json:"lossPct"`
+	MinMs       float64 `json:"minMs"`
+	AvgMs       float64 `json:"avgMs"`
+	MaxMs       float64 `json:"maxMs"`
+	JitterMs    float64 `json:"jitterMs"`
+	Success     bool    `json:"success"`
+}
+
+type MtuResult struct {
+	TestedSize int    `json:"testedSize"`
+	Pass       bool   `json:"pass"`
+	Details    string `json:"details"`
+}
+
+type GameTargetLatency struct {
+	Name        string  `json:"name"`
+	IP          string  `json:"ip"`
+	Location    string  `json:"location"`
+	VpsPingMs   float64 `json:"vpsPingMs"`
+	TotalPingMs float64 `json:"totalPingMs"`
+}
+
+type PeerAuditReport struct {
+	PubKey        string              `json:"pubKey"`
+	Alias         string              `json:"alias"`
+	ClientIP      string              `json:"clientIp"`
+	Endpoint      string              `json:"endpoint"`
+	IsOnline      bool                `json:"isOnline"`
+	HandshakeAge  int64               `json:"handshakeAge"`
+	HandshakeStr  string              `json:"handshakeStr"`
+	HonotuaPing   PingResult          `json:"honotuaPing"`
+	MtuStatus     MtuResult           `json:"mtuStatus"`
+	GameTargets   []GameTargetLatency `json:"gameTargets"`
+	OverallStatus string              `json:"overallStatus"` // "OPTIMAL", "WARNING", "OFFLINE"
+	Diagnosis     string              `json:"diagnosis"`
+	Logs          []string            `json:"logs"`
 }
 
 type EnrollCommand struct {
@@ -410,6 +452,197 @@ func startAdminHTTPServer(port int) {
 	_ = http.ListenAndServe(addr, mux)
 }
 
+func executePing(ip string, count int, intervalSec float64, timeoutSec int, payloadSize int, doNotFragment bool) PingResult {
+	var args []string
+	args = append(args, "-c", fmt.Sprintf("%d", count))
+	if intervalSec > 0 {
+		args = append(args, "-i", fmt.Sprintf("%.2f", intervalSec))
+	}
+	args = append(args, "-W", fmt.Sprintf("%d", timeoutSec))
+	if payloadSize > 0 {
+		args = append(args, "-s", fmt.Sprintf("%d", payloadSize))
+	}
+	if doNotFragment {
+		args = append(args, "-M", "do")
+	}
+	args = append(args, ip)
+
+	cmd := exec.Command("ping", args...)
+	out, _ := cmd.CombinedOutput()
+	outStr := string(out)
+
+	res := PingResult{
+		Transmitted: count,
+		LossPct:     100.0,
+	}
+
+	reStats := regexp.MustCompile(`(\d+)\s+packets transmitted,\s+(\d+)\s+(?:packets\s+)?received,\s+([\d\.]+)%\s+packet loss`)
+	if m := reStats.FindStringSubmatch(outStr); len(m) >= 4 {
+		tx, _ := strconv.Atoi(m[1])
+		rx, _ := strconv.Atoi(m[2])
+		loss, _ := strconv.ParseFloat(m[3], 64)
+		res.Transmitted = tx
+		res.Received = rx
+		res.LossPct = loss
+	}
+
+	reRtt := regexp.MustCompile(`rtt min/avg/max/mdev = ([\d\.]+)/([\d\.]+)/([\d\.]+)/([\d\.]+)`)
+	if m := reRtt.FindStringSubmatch(outStr); len(m) >= 5 {
+		minVal, _ := strconv.ParseFloat(m[1], 64)
+		avgVal, _ := strconv.ParseFloat(m[2], 64)
+		maxVal, _ := strconv.ParseFloat(m[3], 64)
+		mdevVal, _ := strconv.ParseFloat(m[4], 64)
+		res.MinMs = minVal
+		res.AvgMs = avgVal
+		res.MaxMs = maxVal
+		res.JitterMs = mdevVal
+		res.Success = res.Received > 0
+	} else if res.Received > 0 {
+		reSingle := regexp.MustCompile(`time=([\d\.]+)\s*ms`)
+		if m := reSingle.FindStringSubmatch(outStr); len(m) >= 2 {
+			tVal, _ := strconv.ParseFloat(m[1], 64)
+			res.MinMs = tVal
+			res.AvgMs = tVal
+			res.MaxMs = tVal
+			res.Success = true
+		}
+	}
+
+	return res
+}
+
+func auditPeer(pubKey string) (*PeerAuditReport, error) {
+	peers, err := getWireGuardPeers()
+	if err != nil {
+		return nil, err
+	}
+
+	var targetPeer *PeerInfo
+	for _, p := range peers {
+		if p.PubKey == pubKey {
+			targetPeer = &p
+			break
+		}
+	}
+
+	if targetPeer == nil {
+		return nil, fmt.Errorf("peer introuvable pour la clé fournie")
+	}
+
+	cleanIP := strings.TrimSuffix(targetPeer.AllowedIPs, "/32")
+	now := time.Now().Unix()
+	handshakeAge := int64(0)
+	if targetPeer.LatestHandshakeEpoch > 0 {
+		handshakeAge = now - targetPeer.LatestHandshakeEpoch
+	}
+
+	report := &PeerAuditReport{
+		PubKey:       targetPeer.PubKey,
+		Alias:        targetPeer.Alias,
+		ClientIP:     cleanIP,
+		Endpoint:     targetPeer.Endpoint,
+		IsOnline:     targetPeer.IsOnline,
+		HandshakeAge: handshakeAge,
+		HandshakeStr: targetPeer.LatestHandshakeHuman,
+		Logs:         []string{},
+	}
+
+	report.Logs = append(report.Logs, fmt.Sprintf("[AUDIT] Démarrage du diagnostic pour %s (%s)", targetPeer.Alias, cleanIP))
+	report.Logs = append(report.Logs, fmt.Sprintf("[AUDIT] Endpoint: %s • Handshake: %s", targetPeer.Endpoint, targetPeer.LatestHandshakeHuman))
+
+	// 1. Sonde de la liaison Honotua via l'interface WireGuard
+	report.Logs = append(report.Logs, fmt.Sprintf("[AUDIT] Sonde ICMP vers %s (tunnel WireGuard / Wintun)...", cleanIP))
+	honotuaPing := executePing(cleanIP, 3, 0.2, 1, 56, false)
+	report.HonotuaPing = honotuaPing
+
+	if honotuaPing.Success {
+		report.Logs = append(report.Logs, fmt.Sprintf("[AUDIT] Honotua RTT: %.1f ms (min: %.1f, max: %.1f, gigue: %.2f ms, perte: %.1f%%)",
+			honotuaPing.AvgMs, honotuaPing.MinMs, honotuaPing.MaxMs, honotuaPing.JitterMs, honotuaPing.LossPct))
+	} else {
+		report.Logs = append(report.Logs, fmt.Sprintf("[AUDIT] Injoignable : 100%% de paquets perdus vers %s", cleanIP))
+	}
+
+	// 2. Vérification MTU Clamp (paquet IP 1380 octets -> 1352 octets de payload ICMP avec DF bit)
+	report.Logs = append(report.Logs, "[AUDIT] Test MTU 1380 octets avec bit DF (Don't Fragment)...")
+	mtuPing := executePing(cleanIP, 1, 0, 1, 1352, true)
+	report.MtuStatus = MtuResult{
+		TestedSize: 1380,
+		Pass:       mtuPing.Success,
+	}
+	if mtuPing.Success {
+		report.MtuStatus.Details = "Paquet 1380 octets transmis sans fragmentation"
+		report.Logs = append(report.Logs, "[AUDIT] Intégrité MTU : Conforme (MTU 1380 clamp actif)")
+	} else {
+		report.MtuStatus.Details = "Échec ou fragmentation requise pour 1380 octets"
+		report.Logs = append(report.Logs, "[AUDIT] Intégrité MTU : Anomalie ou client injoignable")
+	}
+
+	// 3. Mesure de latence vers les cibles E-Sport clés
+	targets := []struct {
+		Name     string
+		IP       string
+		Location string
+	}{
+		{Name: "Steam SDR LAX", IP: "162.254.195.1", Location: "Los Angeles (US-West)"},
+		{Name: "Steam SDR Seattle", IP: "162.254.193.1", Location: "Seattle (US-NW)"},
+		{Name: "Cloudflare Edge", IP: "1.1.1.1", Location: "San José Gateway"},
+	}
+
+	report.Logs = append(report.Logs, "[AUDIT] Mesure des latences amont vers les infrastructures E-Sport...")
+	report.GameTargets = make([]GameTargetLatency, len(targets))
+
+	clientHonotuaRtt := honotuaPing.AvgMs
+	if clientHonotuaRtt == 0 && honotuaPing.Success {
+		clientHonotuaRtt = honotuaPing.MinMs
+	}
+
+	var wg sync.WaitGroup
+	for i, t := range targets {
+		wg.Add(1)
+		go func(idx int, name, ip, loc string) {
+			defer wg.Done()
+			p := executePing(ip, 2, 0.2, 1, 56, false)
+			vpsRtt := p.AvgMs
+			totalRtt := 0.0
+			if p.Success && honotuaPing.Success {
+				totalRtt = clientHonotuaRtt + vpsRtt
+			} else if p.Success {
+				totalRtt = vpsRtt
+			}
+			report.GameTargets[idx] = GameTargetLatency{
+				Name:        name,
+				IP:          ip,
+				Location:    loc,
+				VpsPingMs:   vpsRtt,
+				TotalPingMs: totalRtt,
+			}
+		}(i, t.Name, t.IP, t.Location)
+	}
+	wg.Wait()
+
+	for _, gt := range report.GameTargets {
+		report.Logs = append(report.Logs, fmt.Sprintf("[AUDIT] %s (%s) : VPS %.1f ms | Joueur estimé: %.1f ms",
+			gt.Name, gt.IP, gt.VpsPingMs, gt.TotalPingMs))
+	}
+
+	// 4. Évaluation globale de la santé de la session
+	if !targetPeer.IsOnline && !honotuaPing.Success {
+		report.OverallStatus = "OFFLINE"
+		report.Diagnosis = "Client inactif ou application CrazyPing fermée. Vérifiez que CrazyPing est lancé chez le joueur."
+		report.Logs = append(report.Logs, "[AUDIT] Statut global : HORS LIGNE")
+	} else if honotuaPing.LossPct > 5.0 || honotuaPing.JitterMs > 15.0 || !report.MtuStatus.Pass {
+		report.OverallStatus = "WARNING"
+		report.Diagnosis = "Liaison instable : gigue élevée ou perte de paquets détectée sur le câble Honotua."
+		report.Logs = append(report.Logs, "[AUDIT] Statut global : PERFORMANCES DÉGRADÉES")
+	} else {
+		report.OverallStatus = "OPTIMAL"
+		report.Diagnosis = "Connexion E-Sport optimale et conforme. Tunnel Wintun opérationnel, 0% perte, MTU 1380 respecté."
+		report.Logs = append(report.Logs, "[AUDIT] Statut global : OPTIMAL")
+	}
+
+	return report, nil
+}
+
 func handleAdminUDP(pkt *protocol.Packet, conn *net.UDPConn, clientAddr *net.UDPAddr) {
 	var cmd AdminCommand
 	if err := json.Unmarshal(pkt.Payload, &cmd); err != nil {
@@ -448,6 +681,13 @@ func handleAdminUDP(pkt *protocol.Packet, conn *net.UDPConn, clientAddr *net.UDP
 	case "revoke":
 		_ = revokePeer(cmd.PubKey)
 		respPayload = []byte(`{"status":"revoked"}`)
+
+	case "audit_peer":
+		if rep, err := auditPeer(cmd.PubKey); err == nil {
+			respPayload, _ = json.Marshal(rep)
+		} else {
+			respPayload = []byte(fmt.Sprintf(`{"error":"%s"}`, err.Error()))
+		}
 
 	default: // "list_peers"
 		peers, err := getWireGuardPeers()

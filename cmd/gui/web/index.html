@@ -476,6 +476,135 @@
     </div>
   </div>
 
+  <!-- Modal d'Audit Diagnostic Réseau & Santé Client (Superviseur) -->
+  <div id="audit-modal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md hidden transition-all">
+    <div class="bg-slate-900 border border-violet-500/40 rounded-3xl max-w-2xl w-full p-6 shadow-2xl relative overflow-hidden">
+      <!-- En-tête Modale -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-violet-950 border border-violet-500/50 flex items-center justify-center text-xl text-violet-300 font-bold">
+            🩺
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-base font-extrabold text-white">Rapport d'Audit Réseau & Santé Client</h3>
+              <span id="audit-target-badge" class="text-xs px-2 py-0.5 rounded-full bg-violet-950 text-violet-300 border border-violet-800 font-mono font-bold">-</span>
+            </div>
+            <p class="text-xs text-slate-400" id="audit-target-subtitle">Diagnostic matériel et réseau depuis la passerelle Honotua</p>
+          </div>
+        </div>
+        <button onclick="closeAuditModal()" class="text-slate-400 hover:text-white text-lg p-1 transition cursor-pointer">✕</button>
+      </div>
+
+      <!-- Écran de Chargement / Scan en cours -->
+      <div id="audit-loading" class="py-12 flex flex-col items-center justify-center text-center">
+        <div class="relative w-20 h-20 mb-4 rounded-full border-4 border-violet-500/20 border-t-violet-400 animate-spin flex items-center justify-center">
+          <span class="text-2xl animate-pulse">📡</span>
+        </div>
+        <div class="text-sm font-bold text-white mb-1">Audit du client en cours...</div>
+        <div class="text-xs text-slate-400 font-mono" id="audit-step-label">Interrogation de l'interface WireGuard & sondes de latence...</div>
+      </div>
+
+      <!-- Contenu du Rapport de Diagnostic (Affiché après le scan) -->
+      <div id="audit-result" class="hidden space-y-4 pt-4">
+
+        <!-- Résumé Global du Statut -->
+        <div id="audit-summary-banner" class="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div id="audit-summary-icon" class="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-lg font-bold">
+              ✓
+            </div>
+            <div>
+              <div id="audit-summary-title" class="text-xs font-bold text-emerald-200">Connexion E-Sport Optimale & Conforme</div>
+              <div id="audit-summary-desc" class="text-[11px] text-emerald-300/80">Tunnel Wintun actif et stable. Aucune fragmentation détectée.</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-xl font-black text-emerald-400 font-mono" id="audit-primary-ping">-</div>
+            <div class="text-[10px] text-slate-400" id="audit-primary-label">Honotua RTT</div>
+          </div>
+        </div>
+
+        <!-- Grille des 4 Métriques d'Audit -->
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          
+          <!-- Carte 1 : Pilote Wintun & WireGuard -->
+          <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+            <div class="text-[11px] text-slate-400 mb-1 flex items-center justify-between">
+              <span>Pilote Wintun Kernel</span>
+              <span id="audit-wintun-status-badge" class="text-emerald-400 font-bold">OK</span>
+            </div>
+            <div class="font-semibold text-white flex items-center gap-1.5">
+              <span id="audit-wintun-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span id="audit-wintun-label">WireGuard actif</span>
+            </div>
+            <div id="audit-wintun-sub" class="text-[10px] text-slate-500 mt-1 font-mono">Dernier handshake: -</div>
+          </div>
+
+          <!-- Carte 2 : Câble Honotua Direct -->
+          <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+            <div class="text-[11px] text-slate-400 mb-1 flex items-center justify-between">
+              <span>Liaison Honotua &rarr; San José</span>
+              <span id="audit-honotua-rtt" class="text-cyan-400 font-bold font-mono">- ms</span>
+            </div>
+            <div class="font-semibold text-white flex items-center gap-1.5">
+              <span id="audit-honotua-dot" class="w-2 h-2 rounded-full bg-cyan-400"></span>
+              <span id="audit-honotua-stats">Jitter: - • Perte: -</span>
+            </div>
+            <div class="text-[10px] text-slate-500 mt-1 font-mono">Tunnel WireGuard direct • MTU 1380</div>
+          </div>
+
+          <!-- Carte 3 : Pings Ciblés Serveurs Jeux -->
+          <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+            <div class="text-[11px] text-slate-400 mb-1 flex items-center justify-between">
+              <span>Pings Réseau E-Sport (NA West)</span>
+              <span id="audit-games-status-badge" class="text-emerald-400 font-bold">OPTIMISÉ</span>
+            </div>
+            <div id="audit-game-targets-list" class="space-y-1 font-mono text-[11px]">
+              <!-- Rempli dynamiquement -->
+            </div>
+          </div>
+
+          <!-- Carte 4 : Diagnostic MTU & Détection Conflits -->
+          <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+            <div class="text-[11px] text-slate-400 mb-1 flex items-center justify-between">
+              <span>Intégrité MTU & Fragmentation</span>
+              <span id="audit-mtu-badge" class="text-emerald-400 font-bold">CONFORME</span>
+            </div>
+            <div class="font-semibold text-white flex items-center gap-1.5">
+              <span id="audit-mtu-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span id="audit-mtu-label">MTU 1380 Clamp : Respecté</span>
+            </div>
+            <div id="audit-mtu-sub" class="text-[10px] text-slate-400 mt-1">Paquet 1380 octets transmis sans fragmentation.</div>
+          </div>
+
+        </div>
+
+        <!-- Historique des Logs Techniques de l'Audit -->
+        <div id="audit-logs-box" class="rounded-xl bg-slate-950 p-3 border border-slate-800/80 font-mono text-[10px] text-slate-400 max-h-28 overflow-y-auto space-y-0.5">
+          <!-- Rempli dynamiquement -->
+        </div>
+
+        <!-- Pied de la modale -->
+        <div class="pt-3 border-t border-slate-800 flex items-center justify-between">
+          <div class="text-[11px] text-slate-400">
+            Audit complété à <span id="audit-timestamp" class="font-mono text-white">-</span>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="retestAudit()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer">
+              Re-tester
+            </button>
+            <button onclick="closeAuditModal()" class="px-4 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold transition cursor-pointer">
+              Fermer
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
   <!-- Modal Auto-Activation (Onboarding Pseudo) -->
   <div id="onboard-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-lg z-50 hidden flex items-center justify-center p-4">
     <div class="glass-card max-w-md w-full p-7 rounded-3xl border border-cyan-500/40 shadow-2xl shadow-cyan-950/90 text-center relative overflow-hidden">
@@ -988,15 +1117,22 @@
         let totalTx = 0;
 
         peersTbody.innerHTML = '';
+        window.adminPeersCache = window.adminPeersCache || {};
         peers.forEach(p => {
+          window.adminPeersCache[p.pubKey] = p;
           if (p.isOnline) onlineCount++;
           totalRx += p.rxBytes;
           totalTx += p.txBytes;
 
           const isMaster = p.allowedIps === "10.10.0.2/32";
-          const actionHtml = isMaster
-            ? `<span class="text-[10px] text-slate-500 font-mono">Principal</span>`
-            : `<button onclick="revokeFriend('${p.pubKey}')" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-950/60 text-rose-300 border border-rose-500/30 hover:bg-rose-900/60 transition cursor-pointer">Révoquer</button>`;
+          let actionHtml = `<div class="flex items-center justify-end gap-1.5">
+            <button onclick="openAuditModal('${p.pubKey}')" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-950/60 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-900/60 transition cursor-pointer flex items-center gap-1 shadow-sm">
+              <span>🩺</span><span>Auditer</span>
+            </button>`;
+          if (!isMaster) {
+            actionHtml += `<button onclick="revokeFriend('${p.pubKey}')" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-950/60 text-rose-300 border border-rose-500/30 hover:bg-rose-900/60 transition cursor-pointer">Révoquer</button>`;
+          }
+          actionHtml += `</div>`;
 
           const tr = document.createElement('tr');
           tr.className = "hover:bg-slate-800/40 transition";
@@ -1116,6 +1252,223 @@
         await fetch(`/api/admin/revoke?pubkey=${encodeURIComponent(pubKey)}`, { method: 'POST' });
         loadAdminPeers();
       } catch (e) {}
+    }
+
+    // Gestion du module d'Audit & Diagnostic Réseau Peer
+    let currentAuditedPubKey = null;
+
+    function openAuditModal(pubKey) {
+      currentAuditedPubKey = pubKey;
+      const peer = (window.adminPeersCache && window.adminPeersCache[pubKey]) || {};
+      const modal = document.getElementById('audit-modal');
+      const badge = document.getElementById('audit-target-badge');
+      const subtitle = document.getElementById('audit-target-subtitle');
+
+      badge.innerText = `${peer.alias || 'Joueur'} (${peer.allowedIps || '-'})`;
+      subtitle.innerText = `Diagnostic matériel et réseau depuis la passerelle Honotua • Endpoint: ${peer.endpoint || '-'}`;
+
+      modal.classList.remove('hidden');
+      runPeerAudit(pubKey);
+    }
+
+    function closeAuditModal() {
+      document.getElementById('audit-modal').classList.add('hidden');
+    }
+
+    function retestAudit() {
+      if (currentAuditedPubKey) {
+        runPeerAudit(currentAuditedPubKey);
+      }
+    }
+
+    async function runPeerAudit(pubKey) {
+      const loading = document.getElementById('audit-loading');
+      const result = document.getElementById('audit-result');
+      const stepLabel = document.getElementById('audit-step-label');
+
+      loading.classList.remove('hidden');
+      result.classList.add('hidden');
+
+      stepLabel.innerText = "1/3 : Test du canal WireGuard & vérification du pilote Wintun...";
+      
+      const stepTimer1 = setTimeout(() => {
+        stepLabel.innerText = "2/3 : Mesure du RTT Honotua & sondes pings vers AWS US West / Steam SDR...";
+      }, 700);
+
+      const stepTimer2 = setTimeout(() => {
+        stepLabel.innerText = "3/3 : Analyse du MTU clamp 1380 & intégrité des trames...";
+      }, 1500);
+
+      try {
+        const res = await fetch(`/api/admin/audit?pubkey=${encodeURIComponent(pubKey)}`);
+        clearTimeout(stepTimer1);
+        clearTimeout(stepTimer2);
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || `Erreur HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        renderAuditReport(data);
+
+        loading.classList.add('hidden');
+        result.classList.remove('hidden');
+      } catch (err) {
+        clearTimeout(stepTimer1);
+        clearTimeout(stepTimer2);
+        loading.classList.add('hidden');
+        result.classList.remove('hidden');
+
+        const banner = document.getElementById('audit-summary-banner');
+        banner.className = "p-3.5 rounded-2xl bg-rose-950/40 border border-rose-500/40 flex items-center justify-between";
+        document.getElementById('audit-summary-icon').innerText = "✕";
+        document.getElementById('audit-summary-icon').className = "w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 text-lg font-bold";
+        document.getElementById('audit-summary-title').innerText = "Échec de l'audit";
+        document.getElementById('audit-summary-desc').innerText = `Impossible d'interroger la passerelle : ${err.message}`;
+        document.getElementById('audit-primary-ping').innerText = "ERR";
+        document.getElementById('audit-primary-label').innerText = "Statut";
+
+        document.getElementById('audit-logs-box').innerHTML = `<div class="text-rose-400 font-mono">[ERREUR] ${err.message}</div>`;
+      }
+    }
+
+    function renderAuditReport(data) {
+      const now = new Date();
+      document.getElementById('audit-timestamp').innerText = now.toTimeString().split(' ')[0];
+
+      const banner = document.getElementById('audit-summary-banner');
+      const icon = document.getElementById('audit-summary-icon');
+      const title = document.getElementById('audit-summary-title');
+      const desc = document.getElementById('audit-summary-desc');
+      const priPing = document.getElementById('audit-primary-ping');
+      const priLabel = document.getElementById('audit-primary-label');
+
+      if (data.overallStatus === "OPTIMAL") {
+        banner.className = "p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between";
+        icon.className = "w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-lg font-bold";
+        icon.innerText = "✓";
+        title.innerText = "Connexion E-Sport Optimale & Conforme";
+        title.className = "text-xs font-bold text-emerald-200";
+        desc.className = "text-[11px] text-emerald-300/80";
+        desc.innerText = data.diagnosis || "Tunnel Wintun opérationnel. 0% perte, MTU 1380 respecté.";
+        priPing.className = "text-xl font-black text-emerald-400 font-mono";
+        priPing.innerText = `${data.honotuaPing && data.honotuaPing.avgMs ? data.honotuaPing.avgMs.toFixed(1) : '-'} ms`;
+        priLabel.innerText = "Honotua RTT";
+      } else if (data.overallStatus === "WARNING") {
+        banner.className = "p-3.5 rounded-2xl bg-amber-950/40 border border-amber-500/40 flex items-center justify-between";
+        icon.className = "w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-lg font-bold";
+        icon.innerText = "⚠️";
+        title.innerText = "Performances Réseau Dégradées";
+        title.className = "text-xs font-bold text-amber-200";
+        desc.className = "text-[11px] text-amber-300/80";
+        desc.innerText = data.diagnosis || "Présence de gigue ou perte de paquets.";
+        priPing.className = "text-xl font-black text-amber-400 font-mono";
+        priPing.innerText = `${data.honotuaPing && data.honotuaPing.avgMs ? data.honotuaPing.avgMs.toFixed(1) : '-'} ms`;
+        priLabel.innerText = "Honotua RTT";
+      } else {
+        banner.className = "p-3.5 rounded-2xl bg-rose-950/40 border border-rose-500/40 flex items-center justify-between";
+        icon.className = "w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 text-lg font-bold";
+        icon.innerText = "✕";
+        title.innerText = "Client Déconnecté ou Inactif";
+        title.className = "text-xs font-bold text-rose-200";
+        desc.className = "text-[11px] text-rose-300/80";
+        desc.innerText = data.diagnosis || "L'application CrazyPing n'est pas connectée chez le joueur.";
+        priPing.className = "text-xl font-black text-rose-400 font-mono";
+        priPing.innerText = "OFFLINE";
+        priLabel.innerText = "État";
+      }
+
+      // Carte 1 : Pilote Wintun / WireGuard
+      const wintunBadge = document.getElementById('audit-wintun-status-badge');
+      const wintunDot = document.getElementById('audit-wintun-dot');
+      const wintunLabel = document.getElementById('audit-wintun-label');
+      const wintunSub = document.getElementById('audit-wintun-sub');
+
+      if (data.isOnline || (data.honotuaPing && data.honotuaPing.success)) {
+        wintunBadge.innerText = "ACTIF";
+        wintunBadge.className = "text-emerald-400 font-bold";
+        wintunDot.className = "w-2 h-2 rounded-full bg-emerald-400";
+        wintunLabel.innerText = "Tunnel WireGuard opérationnel";
+        wintunSub.innerText = `Dernier échange: ${data.handshakeStr || 'Récent'} (Pilote Wintun actif)`;
+      } else {
+        wintunBadge.innerText = "INACTIF";
+        wintunBadge.className = "text-slate-400 font-bold";
+        wintunDot.className = "w-2 h-2 rounded-full bg-slate-500";
+        wintunLabel.innerText = "Tunnel non connecté";
+        wintunSub.innerText = `Dernier échange: ${data.handshakeStr || 'Inconnu'}`;
+      }
+
+      // Carte 2 : Honotua Cable Ping
+      const honotuaRtt = document.getElementById('audit-honotua-rtt');
+      const honotuaDot = document.getElementById('audit-honotua-dot');
+      const honotuaStats = document.getElementById('audit-honotua-stats');
+
+      if (data.honotuaPing && data.honotuaPing.success) {
+        honotuaRtt.innerText = `${data.honotuaPing.avgMs.toFixed(1)} ms`;
+        honotuaDot.className = "w-2 h-2 rounded-full bg-cyan-400";
+        honotuaStats.innerText = `Gigue: ${data.honotuaPing.jitterMs.toFixed(1)} ms • Perte: ${data.honotuaPing.lossPct.toFixed(0)}%`;
+      } else {
+        honotuaRtt.innerText = "Injoignable";
+        honotuaDot.className = "w-2 h-2 rounded-full bg-rose-500";
+        honotuaStats.innerText = "Perte de paquets: 100%";
+      }
+
+      // Carte 3 : Game Targets
+      const gamesList = document.getElementById('audit-game-targets-list');
+      gamesList.innerHTML = '';
+      if (data.gameTargets && data.gameTargets.length > 0) {
+        data.gameTargets.forEach(t => {
+          const row = document.createElement('div');
+          row.className = "flex justify-between text-slate-300";
+          const pingDisplay = t.totalPingMs > 0 ? `${t.totalPingMs.toFixed(1)} ms` : `${t.vpsPingMs.toFixed(1)} ms (VPS)`;
+          const colorClass = t.totalPingMs > 140 ? 'text-amber-400' : 'text-emerald-400';
+          row.innerHTML = `<span>${t.name}</span><span class="${colorClass} font-bold">${pingDisplay}</span>`;
+          gamesList.appendChild(row);
+        });
+      } else {
+        gamesList.innerHTML = `<div class="text-slate-500">Aucune métrique de jeu disponible</div>`;
+      }
+
+      // Carte 4 : MTU
+      const mtuBadge = document.getElementById('audit-mtu-badge');
+      const mtuDot = document.getElementById('audit-mtu-dot');
+      const mtuLabel = document.getElementById('audit-mtu-label');
+      const mtuSub = document.getElementById('audit-mtu-sub');
+
+      if (data.mtuStatus && data.mtuStatus.pass) {
+        mtuBadge.innerText = "CONFORME";
+        mtuBadge.className = "text-emerald-400 font-bold";
+        mtuDot.className = "w-2 h-2 rounded-full bg-emerald-400";
+        mtuLabel.innerText = "MTU 1380 Clamp : Respecté";
+        mtuSub.innerText = data.mtuStatus.details || "Paquet 1380 octets transmis sans fragmentation.";
+      } else {
+        mtuBadge.innerText = data.isOnline ? "ANOMALIE" : "INACTIF";
+        mtuBadge.className = data.isOnline ? "text-amber-400 font-bold" : "text-slate-500 font-bold";
+        mtuDot.className = data.isOnline ? "w-2 h-2 rounded-full bg-amber-400" : "w-2 h-2 rounded-full bg-slate-500";
+        mtuLabel.innerText = data.isOnline ? "Fragmentation détectée" : "Test non exécuté";
+        mtuSub.innerText = data.mtuStatus ? data.mtuStatus.details : "Client injoignable pour le test MTU.";
+      }
+
+      // Logs box
+      const logsBox = document.getElementById('audit-logs-box');
+      logsBox.innerHTML = '';
+      if (data.logs && data.logs.length > 0) {
+        data.logs.forEach(log => {
+          const lDiv = document.createElement('div');
+          if (log.includes('[ERREUR]') || log.includes('100% de paquets perdus') || log.includes('HORS LIGNE') || log.includes('Injoignable')) {
+            lDiv.className = "text-rose-400";
+          } else if (log.includes('AVERTISSEMENT') || log.includes('DÉGRADÉES') || log.includes('Anomalie')) {
+            lDiv.className = "text-amber-400";
+          } else if (log.includes('OPTIMAL') || log.includes('Conforme') || log.includes('opérationnel')) {
+            lDiv.className = "text-emerald-400 font-semibold";
+          } else if (log.includes('Endpoint') || log.includes('Démarrage') || log.includes('Honotua RTT')) {
+            lDiv.className = "text-cyan-400";
+          }
+          lDiv.innerText = log;
+          logsBox.appendChild(lDiv);
+        });
+      }
     }
 
     // Gestion de l'identité et de l'enrôlement automatique

@@ -37,7 +37,7 @@ var (
 )
 
 const (
-	AppVersion = "1.3.1"
+	AppVersion = "1.4.0"
 	GitHubRepo = "Cioq987/CrazyPing"
 	wgExePath  = `C:\Program Files\WireGuard\wireguard.exe`
 )
@@ -981,6 +981,25 @@ func main() {
 		_, _ = w.Write(data)
 	})
 
+	mux.HandleFunc("/api/admin/audit", func(w http.ResponseWriter, r *http.Request) {
+		if !metrics.IsAdmin || adminToken == "" {
+			http.Error(w, "Accès réservé", http.StatusForbidden)
+			return
+		}
+		pubKey := r.URL.Query().Get("pubkey")
+		if pubKey == "" {
+			http.Error(w, "Paramètre pubkey requis", http.StatusBadRequest)
+			return
+		}
+		data, err := queryVpsAdminAction(*relayHost, *relayPort, adminToken, "audit_peer", "", pubKey)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Erreur: %v", err), http.StatusBadGateway)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(data)
+	})
+
 	var (
 		lastHeartbeat int64 = time.Now().Unix()
 		hasConnected  int32 = 0
@@ -1205,7 +1224,13 @@ func queryVpsAdminAction(relayHost string, relayPort int, adminToken, action, id
 	}
 	enc := req.Encode()
 
-	// Tentative avec retry (2 essais, timeout 3s chacun) pour absorber les fluctuations transitoires
+	// Délai d'attente adapté : 7s pour les audits distants approfondis, 3s par défaut
+	timeout := 3000 * time.Millisecond
+	if action == "audit_peer" {
+		timeout = 7000 * time.Millisecond
+	}
+
+	// Tentative avec retry (2 essais) pour absorber les fluctuations transitoires
 	var lastErr error
 	for attempt := 0; attempt < 2; attempt++ {
 		conn, err := net.DialUDP("udp", nil, rAddr)
@@ -1214,7 +1239,7 @@ func queryVpsAdminAction(relayHost string, relayPort int, adminToken, action, id
 			continue
 		}
 
-		_ = conn.SetDeadline(time.Now().Add(3000 * time.Millisecond))
+		_ = conn.SetDeadline(time.Now().Add(timeout))
 		if _, err := conn.Write(enc); err != nil {
 			_ = conn.Close()
 			lastErr = err
