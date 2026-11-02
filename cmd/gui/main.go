@@ -29,8 +29,15 @@ import (
 //go:embed web/*
 var webFiles embed.FS
 
+var (
+	browserMu        sync.Mutex
+	activeBrowserCmd *exec.Cmd
+	isUpdating       bool
+	globalMetrics    *LiveMetrics
+)
+
 const (
-	AppVersion = "1.3.0"
+	AppVersion = "1.3.1"
 	GitHubRepo = "Cioq987/CrazyPing"
 	wgExePath  = `C:\Program Files\WireGuard\wireguard.exe`
 )
@@ -137,18 +144,27 @@ func downloadAndApplyUpdate(downloadURL string, metrics *LiveMetrics) error {
 	}
 	out.Close()
 
-	if metrics != nil {
-		metrics.AppendLog("Arrêt propre des tunnels avant application de la mise à jour...")
-		metrics.stopCurrentTunnels()
-	}
-
-	cmd := exec.Command(installerPath, "/SILENT", "/SUPPRESSMSGBOXES", "/FORCECLOSEAPPLICATIONS")
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("erreur lancement installateur: %w", err)
-	}
+	browserMu.Lock()
+	isUpdating = true
+	browserMu.Unlock()
 
 	go func() {
-		time.Sleep(800 * time.Millisecond)
+		// Laisser 1.2 seconde au frontend pour recevoir le retour HTTP et afficher l'overlay de mise à jour
+		time.Sleep(1200 * time.Millisecond)
+
+		if metrics != nil {
+			metrics.AppendLog("Arrêt propre des tunnels avant application de la mise à jour...")
+			metrics.stopCurrentTunnels()
+		}
+
+		// Fermeture propre et immédiate de l'ancienne fenêtre d'interface
+		closeNativeWindow()
+
+		cmd := exec.Command(installerPath, "/SILENT", "/SUPPRESSMSGBOXES", "/FORCECLOSEAPPLICATIONS")
+		hideWindow(cmd)
+		if err := cmd.Start(); err == nil {
+			time.Sleep(500 * time.Millisecond)
+		}
 		os.Exit(0)
 	}()
 
@@ -179,11 +195,19 @@ type LiveMetrics struct {
 	VpnQuotaLimitFormatted string  `json:"vpnQuotaLimit"`
 	VpnQuotaPercent       float64  `json:"vpnQuotaPercent"`
 	VpnQuotaBlocked       bool     `json:"vpnQuotaBlocked"`
+	WireGuardInstalled    bool     `json:"wireGuardInstalled"`
 	PreviousVpnActive     bool     `json:"-"`
 	quotaTracker          *VpnQuotaTracker
 	IsAdmin          bool     `json:"isAdmin"`
 	Logs             []string `json:"logs"`
 	lastRtt          float64
+}
+
+func isWireGuardInstalled() bool {
+	if _, err := os.Stat(wgExePath); err == nil {
+		return true
+	}
+	return false
 }
 
 func (m *LiveMetrics) AppendLog(msg string) {
@@ -356,7 +380,7 @@ MTU = 1380
 [Peer]
 PublicKey = 5dRNSNB9hA8qxA00mYSXU97lFG/s3yyNGwUyhKKw8Cw=
 Endpoint = 146.235.218.190:51820
-AllowedIPs = 155.133.224.0/19, 162.254.192.0/19, 101.32.0.0/16, 129.226.0.0/16, 43.128.0.0/16, 52.0.0.0/11, 54.184.0.0/13, 54.200.0.0/13, 34.208.0.0/12, 35.160.0.0/13
+AllowedIPs = 155.133.224.0/19, 155.133.248.0/21, 162.254.192.0/19, 162.254.194.0/23, 52.88.0.0/15, 52.10.0.0/15, 52.24.0.0/14, 52.32.0.0/11, 54.68.0.0/14, 54.148.0.0/15, 54.184.0.0/13, 54.200.0.0/13, 54.212.0.0/14, 54.218.0.0/15, 54.244.0.0/15, 34.208.0.0/12, 35.160.0.0/13, 44.224.0.0/11, 54.153.0.0/16, 54.183.0.0/16, 54.193.0.0/16, 54.215.0.0/16, 54.219.0.0/16, 54.241.0.0/16, 52.8.0.0/14, 52.52.0.0/15, 101.32.0.0/16, 129.226.0.0/16, 43.128.0.0/16
 PersistentKeepalive = 15
 `
 	valorantTemplate := `[Interface]
@@ -493,6 +517,13 @@ func performAutoEnroll(relayHost string, relayPort int, alias, exeDir string) (*
 }
 
 func main() {
+	lockHandle, isOnlyInstance := acquireSingleInstanceLock("CrazyPing_App_Instance")
+	if !isOnlyInstance {
+		// Une instance de CrazyPing est déjà active sur le système
+		return
+	}
+	defer releaseSingleInstanceLock(lockHandle)
+
 	relayHost := flag.String("relay", "146.235.218.190", "Adresse IP du VPS Relais")
 	relayPort := flag.Int("port", 4141, "Port UDP du serveur Relais")
 	flag.Parse()
@@ -533,12 +564,19 @@ func main() {
 		VpnQuotaLimitFormatted: limStr,
 		VpnQuotaPercent:        pct,
 		VpnQuotaBlocked:        blk,
+		WireGuardInstalled:     isWireGuardInstalled(),
 		quotaTracker:           tracker,
 		IsAdmin:                isAdmin,
 		Logs:                   make([]string, 0, 60),
 	}
+	globalMetrics = metrics
 
 	metrics.AppendLog("CrazyPing Tahiti Optimizer v2.0 démarré")
+	if metrics.WireGuardInstalled {
+		metrics.AppendLog("[Wintun] ✓ Pilote réseau Wintun / WireGuard opérationnel")
+	} else {
+		metrics.AppendLog("[Wintun] ⚠️ Pilote réseau Wintun / WireGuard non détecté (installation requise)")
+	}
 	metrics.AppendLog("Moteur WireGuard/Wintun intégré directement")
 	metrics.AppendLog("Liaison physique Honotua vers 146.235.218.190 prête")
 	metrics.AppendLog("Auto-Détection des jeux activée en arrière-plan")
@@ -705,11 +743,74 @@ func main() {
 	mux.HandleFunc("/api/metrics", func(w http.ResponseWriter, r *http.Request) {
 		metrics.mu.Lock()
 		metrics.logMu.Lock()
+		metrics.WireGuardInstalled = isWireGuardInstalled()
 		defer metrics.logMu.Unlock()
 		defer metrics.mu.Unlock()
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(metrics)
+	})
+
+	mux.HandleFunc("/api/wireguard/install", func(w http.ResponseWriter, r *http.Request) {
+		if isWireGuardInstalled() {
+			metrics.mu.Lock()
+			metrics.WireGuardInstalled = true
+			metrics.mu.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]bool{"success": true})
+			return
+		}
+
+		metrics.AppendLog("[Wintun] Initialisation du déploiement silencieux du pilote WireGuard...")
+		msiPath := filepath.Join(exeDir, "wireguard-installer.msi")
+		if _, err := os.Stat(msiPath); err != nil {
+			msiPath = filepath.Join(exeDir, "deploy", "wireguard-amd64-1.1.1.msi")
+		}
+		if _, err := os.Stat(msiPath); err != nil {
+			metrics.AppendLog("[Wintun] Téléchargement sécurisé du package officiel WireGuard AMD64...")
+			tempMsi := filepath.Join(os.TempDir(), "wireguard-amd64-installer.msi")
+			resp, err := http.Get("https://download.wireguard.com/windows-client/wireguard-amd64-1.1.1.msi")
+			if err != nil {
+				metrics.AppendLog(fmt.Sprintf("[Wintun] Erreur téléchargement package : %v", err))
+				http.Error(w, fmt.Sprintf("Erreur téléchargement: %v", err), http.StatusInternalServerError)
+				return
+			}
+			defer resp.Body.Close()
+			f, err := os.Create(tempMsi)
+			if err != nil {
+				metrics.AppendLog(fmt.Sprintf("[Wintun] Erreur création fichier temporaire : %v", err))
+				http.Error(w, fmt.Sprintf("Erreur création fichier temporaire: %v", err), http.StatusInternalServerError)
+				return
+			}
+			_, _ = io.Copy(f, resp.Body)
+			f.Close()
+			msiPath = tempMsi
+		}
+
+		metrics.AppendLog("[Wintun] Exécution de msiexec (DO_NOT_LAUNCH=1)...")
+		cmd := exec.Command("msiexec.exe", "/i", msiPath, "/qn", "/norestart", "DO_NOT_LAUNCH=1")
+		hideWindow(cmd)
+		if err := cmd.Run(); err != nil {
+			metrics.AppendLog(fmt.Sprintf("[Wintun] Erreur msiexec : %v", err))
+			http.Error(w, fmt.Sprintf("Erreur installation msiexec: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		time.Sleep(1500 * time.Millisecond)
+
+		installed := isWireGuardInstalled()
+		metrics.mu.Lock()
+		metrics.WireGuardInstalled = installed
+		metrics.mu.Unlock()
+
+		if installed {
+			metrics.AppendLog("[Wintun] ✓ Pilote réseau Wintun / WireGuard installé et prêt.")
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]bool{"success": true})
+		} else {
+			metrics.AppendLog("[Wintun] Erreur : binaire wireguard.exe toujours introuvable.")
+			http.Error(w, "Échec de détection du pilote après installation", http.StatusInternalServerError)
+		}
 	})
 
 	mux.HandleFunc("/api/tunnel/toggle", func(w http.ResponseWriter, r *http.Request) {
@@ -721,6 +822,12 @@ func main() {
 		if isActive {
 			metrics.stopCurrentTunnels()
 		} else {
+			if !isWireGuardInstalled() {
+				metrics.AppendLog("[Wintun] Impossible d'activer l'optimisation : pilote WireGuard non installé.")
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]any{"active": false, "error": "wireguard_not_installed"})
+				return
+			}
 			if strings.Contains(strings.ToLower(activeConf), "globalvpn") {
 				metrics.mu.Lock()
 				blocked := metrics.VpnQuotaBlocked
@@ -1007,14 +1114,37 @@ func startVpsPinger(host string, port int, m *LiveMetrics) {
 
 func openNativeWindow(url string) {
 	if runtime.GOOS == "windows" {
+		profileDir := filepath.Join(os.TempDir(), "CrazyPing-WebProfile")
 		edgePaths := []string{
 			`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`,
 			`C:\Program Files\Microsoft\Edge\Application\msedge.exe`,
 		}
 		for _, p := range edgePaths {
 			if _, err := os.Stat(p); err == nil {
-				cmd := exec.Command(p, fmt.Sprintf("--app=%s", url), "--window-size=980,720")
+				cmd := exec.Command(p,
+					fmt.Sprintf("--app=%s", url),
+					fmt.Sprintf("--user-data-dir=%s", profileDir),
+					"--window-size=980,720",
+					"--no-first-run",
+					"--no-default-browser-check",
+				)
 				if err := cmd.Start(); err == nil {
+					browserMu.Lock()
+					activeBrowserCmd = cmd
+					browserMu.Unlock()
+
+					go func() {
+						_ = cmd.Wait()
+						browserMu.Lock()
+						updating := isUpdating
+						browserMu.Unlock()
+						if !updating {
+							if globalMetrics != nil {
+								globalMetrics.stopCurrentTunnels()
+							}
+							os.Exit(0)
+						}
+					}()
 					return
 				}
 			}
@@ -1022,8 +1152,30 @@ func openNativeWindow(url string) {
 
 		chromePath := `C:\Program Files\Google\Chrome\Application\chrome.exe`
 		if _, err := os.Stat(chromePath); err == nil {
-			cmd := exec.Command(chromePath, fmt.Sprintf("--app=%s", url), "--window-size=980,720")
+			cmd := exec.Command(chromePath,
+				fmt.Sprintf("--app=%s", url),
+				fmt.Sprintf("--user-data-dir=%s", profileDir),
+				"--window-size=980,720",
+				"--no-first-run",
+				"--no-default-browser-check",
+			)
 			if err := cmd.Start(); err == nil {
+				browserMu.Lock()
+				activeBrowserCmd = cmd
+				browserMu.Unlock()
+
+				go func() {
+					_ = cmd.Wait()
+					browserMu.Lock()
+					updating := isUpdating
+					browserMu.Unlock()
+					if !updating {
+						if globalMetrics != nil {
+							globalMetrics.stopCurrentTunnels()
+						}
+						os.Exit(0)
+					}
+				}()
 				return
 			}
 		}

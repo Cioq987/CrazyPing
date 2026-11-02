@@ -6,6 +6,31 @@ La numérotation des versions respecte les principes du **Semantic Versioning (S
 
 ---
 
+## [1.3.1] - 2026-11-01
+
+### Nouvelles Fonctionnalités & Optimisations Réseau
+- **Intégration Embarquée 100% Silencieuse de WireGuard & Wintun** :
+  - Inclusion directe du package MSI officiel WireGuard AMD64 (`DO_NOT_LAUNCH=1`) au sein de l'installateur autonome `CrazyPing-Setup.exe`.
+  - Déploiement silencieux du pilote Wintun sans aucune intervention de l'utilisateur, supprimant toute redirection vers un site web externe et toute manipulation manuelle.
+- **Diagnostic de Santé Kernel & Réassurance Pédagogique** :
+  - Détection proactive de la présence du pilote Wintun dès le lancement de l'application avec affichage d'un indicateur d'état en temps réel.
+  - Intégration d'une modale pédagogique présentant les 4 piliers de sécurité (certification WHQL Microsoft, code 100% open-source, zéro télémétrie, empreinte ~2 Mo de RAM).
+  - Bouton d'auto-réparation et d'installation silencieuse en 1 clic sans redémarrage.
+- **Optimisation Majeure du Routage E-Sport Mistfall Hunter (NA)** :
+  - Extension complète des plages réseau avec l'ensemble des blocs AWS GameLift US West (Oregon/Californie) et des relais Steam Datagram Relay (SDR) d'Amérique du Nord (`155.133.248.0/21`, `162.254.194.0/23`, `52.32.0.0/11`, `44.224.0.0/11`, etc.).
+  - Élimination des routages asymétriques et des pénalités de fallback SDR, ramenant la latence en jeu à 115-125 ms pour les joueurs tahitiens.
+
+### Correctifs & Stabilité du Cycle de Vie
+- **Résolution Définitive des Fenêtres Orphelines Post-Mise à Jour** :
+  - Isolation complète du processus de rendu Microsoft Edge via un profil applicatif dédié (`CrazyPing-WebProfile`), éliminant tout rattachement au navigateur personnel de l'utilisateur.
+  - Déclenchement d'une fermeture propre et sans délai (`closeNativeWindow`) de l'ancienne fenêtre d'interface avant l'exécution de l'installateur, garantissant une relance sans doublons de fenêtre.
+- **Verrou d'Instance Unique Windows (Single-Instance Mutex)** :
+  - Intégration d'un mutex nommé Win32 (`Local\CrazyPing_App_Instance`) pour empêcher le lancement concurrent de plusieurs processus d'arrière-plan ou de serveurs locaux sur des ports dupliqués.
+- **Réactivité Immédiate à la Clôture de l'Interface** :
+  - Détection instantanée de la fermeture de la fenêtre par l'utilisateur, déclenchant l'arrêt propre des tunnels WireGuard et la terminaison du processus père en moins de 100 ms (sans attendre le timeout réseau).
+
+---
+
 ## [1.3.0] - 2026-11-01
 
 ### Nouvelles Fonctionnalités

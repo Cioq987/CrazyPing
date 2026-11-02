@@ -13,6 +13,7 @@ vpn_quota.json
 *.so
 *.dylib
 *.syso
+*.msi
 crazyping-server-linux-*
 dist/
 

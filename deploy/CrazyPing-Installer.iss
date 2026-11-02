@@ -2,7 +2,7 @@
 ; Génère CrazyPing-Setup.exe avec privilèges d'élévation UAC
 
 #define MyAppName "CrazyPing"
-#define MyAppVersion "1.3.0"
+#define MyAppVersion "1.3.1"
 #define MyAppPublisher "CrazyPing Project"
 #define MyAppURL "https://github.com"
 #define MyAppExeName "CrazyPing.exe"
@@ -45,6 +45,8 @@ Source: "..\CrazyPing-Valorant.conf"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\CrazyPing-LoL.conf"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\CrazyPing-Overwatch.conf"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\CrazyPing-GlobalVPN.conf"; DestDir: "{app}"; Flags: ignoreversion
+Source: "wireguard-amd64-1.1.1.msi"; DestDir: "{app}"; DestName: "wireguard-installer.msi"; Flags: ignoreversion
+Source: "wireguard-amd64-1.1.1.msi"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: not IsWireGuardInstalled
 Source: "..\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
@@ -53,6 +55,7 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\icon.ico"; Tasks: desktopicon
 
 [Run]
+Filename: "msiexec.exe"; Parameters: "/i ""{tmp}\wireguard-amd64-1.1.1.msi"" /qn /norestart DO_NOT_LAUNCH=1"; StatusMsg: "Configuration du pilote réseau WireGuard / Wintun..."; Flags: runhidden waituntilterminated; Check: not IsWireGuardInstalled
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 Filename: "{app}\{#MyAppExeName}"; Flags: nowait skipifnotsilent
 
@@ -65,22 +68,4 @@ begin
   Result := RegQueryStringValue(HKEY_LOCAL_MACHINE, 'SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\wireguard.exe', '', InstalledPath);
   if not Result then
     Result := FileExists(ExpandConstant('{pf}\WireGuard\wireguard.exe'));
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
-var
-  ErrorCode: Integer;
-begin
-  if CurStep = ssPostInstall then
-  begin
-    if not IsWireGuardInstalled() then
-    begin
-      if MsgBox('CrazyPing nécessite le pilote réseau Wintun / WireGuard pour fonctionner.'#13#10 +
-                'Souhaitez-vous ouvrir la page officielle de téléchargement de WireGuard Windows ?', 
-                mbConfirmation, MB_YESNO) = IDYES then
-      begin
-        ShellExec('open', 'https://www.wireguard.com/install/', '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
-      end;
-    end;
-  end;
 end;

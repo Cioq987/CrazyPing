@@ -82,6 +82,12 @@
         <span id="admin-badge-count" class="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono">1</span>
       </button>
 
+      <!-- Driver Status Badge -->
+      <button id="driver-status-badge" onclick="openWintunModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold glass border border-emerald-500/40 text-emerald-300 hover:border-cyan-500/50 transition cursor-pointer">
+        <span id="driver-status-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span id="driver-status-label">Pilote Wintun</span>
+      </button>
+
       <!-- VPS Status Badge -->
       <div class="flex items-center gap-3 glass px-3 py-1.5 rounded-xl">
         <span class="relative flex h-3 w-3">
@@ -123,6 +129,26 @@
         ✕
       </button>
     </div>
+  </div>
+
+  <!-- Driver Missing Warning Banner -->
+  <div id="driver-warning-banner" class="hidden my-3 p-3.5 rounded-2xl bg-gradient-to-r from-amber-950/90 via-orange-950/80 to-slate-900 border border-amber-500/50 shadow-xl shadow-amber-950/50 flex items-center justify-between transition">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-lg shadow-md shadow-amber-950">
+        ⚠️
+      </div>
+      <div>
+        <div class="text-xs font-bold text-amber-200 flex items-center gap-2">
+          <span>Pilote réseau Wintun requis pour l'accélération Honotua</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold">Action Requise</span>
+        </div>
+        <div class="text-[11px] text-amber-300/80 mt-0.5">Le pilote haute performance Wintun / WireGuard est nécessaire pour router les paquets de jeu sans gigue ni perte.</div>
+      </div>
+    </div>
+    <button onclick="openWintunModal()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-extrabold text-xs shadow-lg transition cursor-pointer shrink-0 flex items-center gap-1.5">
+      <span>🚀</span>
+      <span>Activer le pilote (1 Clic)</span>
+    </button>
   </div>
 
   <!-- Metric Badges -->
@@ -489,6 +515,98 @@
     </div>
   </div>
 
+  <!-- Modal Pédagogique et Réassurance Pilote Wintun / WireGuard -->
+  <div id="wintun-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md hidden transition-all">
+    <div class="glass max-w-xl w-full p-6 rounded-3xl border border-cyan-500/40 shadow-2xl relative glow-cyan">
+      
+      <!-- Croix de fermeture -->
+      <button onclick="closeWintunModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors text-lg p-1 cursor-pointer">✕</button>
+
+      <!-- Titre & Entête Modale -->
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xl font-bold shadow-md shadow-cyan-950">
+          🛡️
+        </div>
+        <div>
+          <h3 class="text-base font-extrabold text-white tracking-tight">Pilote Réseau Wintun & WireGuard</h3>
+          <p class="text-xs text-cyan-400">Accélérateur kernel haute performance pour l'E-Sport à Tahiti</p>
+        </div>
+      </div>
+
+      <!-- Section 1 : Pourquoi est-ce indispensable ? -->
+      <div class="bg-slate-950/70 rounded-2xl p-4 border border-slate-800 mb-4 shadow-inner">
+        <div class="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
+          <span class="text-cyan-400">⚡</span> Pourquoi ce pilote est-il indispensable ?
+        </div>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          Pour abaisser le ping de <strong>165 ms à 115 ms</strong> sur les serveurs américains, CrazyPing doit contourner la pile réseau standard de Windows. Le pilote kernel <strong>Wintun</strong> injecte vos paquets UDP de jeu directement dans le tunnel chiffré vers San José, garantissant <strong>zéro bufferbloat</strong> et une latence ultra-stable sur le câble sous-marin Honotua.
+        </p>
+      </div>
+
+      <!-- Section 2 : Les 4 Piliers de Sécurité & Sérénité -->
+      <div class="space-y-2.5 mb-5">
+        <div class="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Pourquoi vous pouvez l'installer en toute confiance :</div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <!-- Pilier 1 -->
+          <div class="p-3 rounded-xl bg-slate-950/50 border border-slate-800 flex items-start gap-2.5">
+            <span class="text-emerald-400 text-base mt-0.5">✓</span>
+            <div>
+              <div class="text-xs font-bold text-white">Certifié WHQL Microsoft</div>
+              <div class="text-[11px] text-slate-400 leading-tight mt-0.5">Signé numériquement et validé par les laboratoires officiels de Microsoft pour Windows 10 & 11.</div>
+            </div>
+          </div>
+
+          <!-- Pilier 2 -->
+          <div class="p-3 rounded-xl bg-slate-950/50 border border-slate-800 flex items-start gap-2.5">
+            <span class="text-emerald-400 text-base mt-0.5">✓</span>
+            <div>
+              <div class="text-xs font-bold text-white">100% Open-Source & Mondial</div>
+              <div class="text-[11px] text-slate-400 leading-tight mt-0.5">Développé par Jason Donenfeld (WireGuard), audité en continu par la communauté cybersécurité.</div>
+            </div>
+          </div>
+
+          <!-- Pilier 3 -->
+          <div class="p-3 rounded-xl bg-slate-950/50 border border-slate-800 flex items-start gap-2.5">
+            <span class="text-emerald-400 text-base mt-0.5">✓</span>
+            <div>
+              <div class="text-xs font-bold text-white">Zéro Télémétrie ni Spyware</div>
+              <div class="text-[11px] text-slate-400 leading-tight mt-0.5">Aucun suivi, aucune collecte de données personnelles. Seuls les flux de jeu sélectionnés sont routés.</div>
+            </div>
+          </div>
+
+          <!-- Pilier 4 -->
+          <div class="p-3 rounded-xl bg-slate-950/50 border border-slate-800 flex items-start gap-2.5">
+            <span class="text-emerald-400 text-base mt-0.5">✓</span>
+            <div>
+              <div class="text-xs font-bold text-white">Ultra-Léger (~2 Mo RAM)</div>
+              <div class="text-[11px] text-slate-400 leading-tight mt-0.5">Ne consomme aucun processeur et s'éteint automatiquement dès la fin de votre session de jeu.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3 : Actions et Bouton 1-Clic -->
+      <div class="pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
+        <div class="text-[11px] text-slate-400 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+          <span>Installation silencieuse sans redémarrage</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="closeWintunModal()" class="px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white transition-colors cursor-pointer">
+            Plus tard
+          </button>
+          <button onclick="installWintunDriver()" id="btn-modal-install-wintun" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-extrabold text-xs tracking-wide shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2 cursor-pointer">
+            <span>🚀</span>
+            <span id="btn-modal-install-wintun-text">Installer le pilote réseau (1 Clic)</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <script>
     const games = [
       { id: 'vpn-global', name: 'VPN Global USA', icon: '🌐', path: 'Navigation Web, Dev & Applications', target: 'San José, CA (IP Américaine 146.235.218.190)', conf: 'CrazyPing-GlobalVPN.conf', ready: true, isVpn: true },
@@ -524,6 +642,10 @@
     };
 
     function activateGameSelection(g) {
+      if (!isWireGuardInstalled) {
+        openWintunModal();
+        return;
+      }
       if (g.isVpn && isVpnBlocked) {
         alert("Le quota journalier de 10 Go pour le VPN USA est atteint pour aujourd'hui. Il sera réinitialisé à minuit. Vos profils de jeux restent 100% illimités !");
         return;
@@ -670,10 +792,19 @@
     }
 
     btn.onclick = async () => {
+      if (!isWireGuardInstalled) {
+        openWintunModal();
+        return;
+      }
       try {
         btnText.innerText = "Action en cours...";
         const res = await fetch('/api/tunnel/toggle', { method: 'POST' });
         const data = await res.json();
+        if (data.error === "wireguard_not_installed") {
+          openWintunModal();
+          updateButtonState(false);
+          return;
+        }
         updateButtonState(data.active);
       } catch (e) {}
     };
@@ -726,6 +857,11 @@
           // Affichage du bouton Admin si actif
           if (data.isAdmin) {
             document.getElementById('admin-toggle-btn').classList.remove('hidden');
+          }
+
+          // Mise a jour de l'etat du pilote Wintun / WireGuard
+          if (data.wireGuardInstalled !== undefined) {
+            updateDriverStatus(data.wireGuardInstalled);
           }
 
           // Mise a jour de l'etat du bouton
@@ -1261,6 +1397,82 @@
       updateNotesModal.onclick = (e) => {
         if (e.target === updateNotesModal) updateNotesModal.classList.add('hidden');
       };
+    }
+
+    // Gestion du Pilote Réseau Wintun / WireGuard
+    let isWireGuardInstalled = true;
+    const wintunModal = document.getElementById('wintun-modal');
+
+    function openWintunModal() {
+      if (wintunModal) wintunModal.classList.remove('hidden');
+    }
+
+    function closeWintunModal() {
+      if (wintunModal) wintunModal.classList.add('hidden');
+    }
+
+    if (wintunModal) {
+      wintunModal.onclick = (e) => {
+        if (e.target === wintunModal) closeWintunModal();
+      };
+    }
+
+    function updateDriverStatus(installed) {
+      isWireGuardInstalled = !!installed;
+      const badge = document.getElementById('driver-status-badge');
+      const dot = document.getElementById('driver-status-dot');
+      const label = document.getElementById('driver-status-label');
+      const banner = document.getElementById('driver-warning-banner');
+
+      if (isWireGuardInstalled) {
+        if (banner) banner.classList.add('hidden');
+        if (badge) {
+          badge.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold glass border border-emerald-500/40 text-emerald-300 hover:border-cyan-500/50 transition cursor-pointer";
+        }
+        if (dot) dot.className = "w-2 h-2 rounded-full bg-emerald-400";
+        if (label) label.innerText = "Pilote Wintun Prêt";
+      } else {
+        if (banner) banner.classList.remove('hidden');
+        if (badge) {
+          badge.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold glass border border-amber-500/60 text-amber-300 hover:bg-amber-950/40 transition cursor-pointer";
+        }
+        if (dot) dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-ping";
+        if (label) label.innerText = "Pilote Wintun Requis";
+      }
+    }
+
+    async function installWintunDriver() {
+      const btn = document.getElementById('btn-modal-install-wintun');
+      const text = document.getElementById('btn-modal-install-wintun-text');
+      if (!btn) return;
+
+      btn.disabled = true;
+      btn.className = "px-4 py-2.5 rounded-xl bg-slate-800 text-cyan-400 font-extrabold text-xs tracking-wide border border-cyan-500/40 flex items-center gap-2 cursor-wait";
+      text.innerHTML = `<span class="animate-spin inline-block mr-1">⏳</span> Déploiement silencieux du pilote Wintun...`;
+
+      try {
+        const res = await fetch('/api/wireguard/install', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || "Échec de l'installation");
+        }
+
+        text.innerHTML = `✓ Pilote Wintun installé avec succès !`;
+        btn.className = "px-4 py-2.5 rounded-xl bg-emerald-500 text-slate-950 font-extrabold text-xs tracking-wide flex items-center gap-2";
+
+        setTimeout(() => {
+          closeWintunModal();
+          updateDriverStatus(true);
+          btn.disabled = false;
+          text.innerText = "Installer le pilote réseau (1 Clic)";
+          btn.className = "px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-extrabold text-xs tracking-wide shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2 cursor-pointer";
+        }, 1200);
+      } catch (err) {
+        text.innerText = "Erreur lors de l'installation";
+        btn.disabled = false;
+        btn.className = "px-4 py-2.5 rounded-xl bg-rose-600 text-white font-extrabold text-xs tracking-wide flex items-center gap-2 cursor-pointer";
+        alert("Erreur lors de l'installation automatique du pilote : " + err.message);
+      }
     }
 
     // Vérification des mises à jour 2.5 secondes après le lancement
