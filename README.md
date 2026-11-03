@@ -1,21 +1,23 @@
 # CrazyPing — Accélérateur Réseau & Réducteur de Latence Haute Performance
 
+[![Version](https://img.shields.io/badge/Version-v1.4.1-cyan.svg?style=flat)](https://github.com/Cioq987/CrazyPing/releases/latest)
 [![Go Version](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D6?style=flat)](https://github.com/Cioq987/CrazyPing)
-[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](#)
 [![Latency](https://img.shields.io/badge/Tahiti%20%E2%86%92%20San%20Jos%C3%A9-~108%20ms-brightgreen)](docs/ROUTING_TABLES.md)
-[![Auto--Updater](https://img.shields.io/badge/Auto--Updater-GitHub%20Releases-blueviolet)](https://github.com/Cioq987/CrazyPing/releases)
-[![Tests](https://img.shields.io/badge/Tests-100%25%20Passing-success)](#-validation-r%C3%A9seau--batterie-de-tests-automatis%C3%A9s)
+[![Auto--Updater](https://img.shields.io/badge/Auto--Updater-GitHub%20Releases-blueviolet)](https://github.com/Cioq987/CrazyPing/releases/latest)
+[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](#)
 
 **CrazyPing** est une solution logicielle et réseau d'optimisation de latence, de stabilisation de gigue (*jitter*) et d'élimination de la perte de paquets (*packet loss*), spécialement conçue pour les liaisons sous-marines transpacifiques reliant la Polynésie française (**Tahiti**) aux centres de données nord-américains (San José / Oregon / Los Angeles).
 
 L'application s'appuie sur une pile réseau hybride de haute précision :
-- **Niveau Pilote Réseau** : Pilote de tunnel virtuel haute vitesse **Wintun** (développé par le projet WireGuard) opérant dans le Ring 0 de Windows.
-- **Protocole Overlay Sécurisé** : Chiffrement asymétrique Curve25519 et AEAD ChaCha20-Poly1305 pour un transit ultra-léger et un cloisonnement strict au niveau 3.
+- **Pilote Noyau Haute Performance** : Moteur virtuel **Wintun** (opérant dans le Ring 0 de Windows) intégré silencieusement dans le package d'installation sans configuration complexe.
+- **Protocole Overlay Sécurisé & MTU 1380** : Chiffrement asymétrique Curve25519 et AEAD ChaCha20-Poly1305 calibré à MTU 1380 pour éliminer toute fragmentation IP sur le câble sous-marin Honotua.
 - **Routage Sélectif (Split-Tunneling)** : Seuls les paquets UDP/TCP des jeux ciblés empruntent la dorsale optimisée ; la navigation web et les appels Discord restent sur les routes locales sans aucune latence additionnelle.
-- **Auto-Activation Instantanée** : Saisie d'un pseudo au premier démarrage et attribution automatique d'une adresse IP WireGuard en moins de 100 ms.
-- **Mise à Jour en Direct (Auto-Updater)** : Détection et application silencieuse des nouvelles versions en 1 clic via l'API GitHub Releases.
-- **Supervision en Temps Réel** : Tableau de bord de télémétrie live et contrôle d'accès dans le panneau Superviseur.
+- **Auto-Détection des Jeux en Temps Réel** : Surveillance dynamique des processus exécutables et commutation automatique du profil de tunnel dès le lancement du jeu.
+- **Mode VPN Global USA & Quota Hybride** : Navigation complète via une adresse IP américaine dédiée avec jauge journalière de 10 Go/jour.
+- **Console Superviseur & Audit Réseau Télécom à Distance** : Supervision des pairs connectés, métriques en temps réel et diagnostic de santé complet en 1 clic (RTT câble Honotua, gigue, intégrité MTU 1380 avec drapeau DF, projection des latences cibles Steam SDR / Cloudflare).
+- **Compression Dynamique Gzip UDP** : Compression temps réel des trames d'administration réduisant la charge utile réseau de 77% pour garantir l'acheminement sous le seuil critique des 1 380 octets.
+- **Auto-Mise à Jour Transparente (Auto-Updater)** : Détection asynchrone, affichage des notes de version avant application et mise à niveau en 1 clic avec élévation administrative Windows (`RunAs`).
 
 ---
 
@@ -46,11 +48,15 @@ Depuis Tahiti, les flux réseau conventionnels souffrent souvent d'un achemineme
 
 ## 🎮 Jeux Supportés et Statut des Profils
 
-| Jeu Compétitif | Statut | Infrastructure Cible | Profil Configuration |
+| Profil / Jeu Compétitif | Statut | Infrastructure Cible | Profil Configuration |
 | :--- | :---: | :--- | :--- |
+| **VPN Global USA** | `● Prêt` | San José, CA (IP Américaine 146.235.218.190) | `CrazyPing-GlobalVPN.conf` (Quota 10 Go/j) |
 | **Fortnite** | `● Prêt` | Epic Online Services + AWS GameLift US-West | `CrazyPing-Fortnite.conf` |
 | **Mistfall Hunter** | `● Prêt` | NetEase Cloud Nodes NA-West | `CrazyPing-MistfallHunter.conf` |
 | **Valorant** | `● Prêt` | Riot Direct US-West (San José / LA / Seattle) | `CrazyPing-Valorant.conf` |
+| **League of Legends** | `● Prêt` | Riot Direct NA (Chicago / US-West) | `CrazyPing-LoL.conf` |
+| **Overwatch 2** | `● Prêt` | Blizzard Entertainment (NA-West / lax1) | `CrazyPing-Overwatch.conf` |
+| **Marvel Rivals** | `🚧 En dév.` | NetEase / AWS US-West | En intégration |
 | **Counter-Strike 2** | `🚧 En dév.` | Valve SDR (Steam Datagram Relay US-West) | En intégration |
 | **Apex Legends** | `🚧 En dév.` | Multiplay / Electronic Arts NA | En intégration |
 | **Call of Duty: Warzone** | `🚧 En dév.` | Demonware / Activision Blizzard NA | En intégration |
@@ -71,8 +77,20 @@ CrazyPing intègre un système d'enrôlement automatique à haute fluidité :
 
 L'application intègre un moteur de mise à jour autonome connecté directement aux Releases GitHub :
 - **Vérification Asynchrone** : 2.5 secondes après l'ouverture, l'application vérifie discrètement si une version plus récente que la version locale a été publiée.
-- **Bannière Interactive Néon** : Si une mise à jour est disponible, une notification dynamique apparaît avec le nom et les nouveautés de la version.
-- **Installation 1-Clic Silencieuse** : Le clic sur *« Mettre à jour maintenant »* télécharge le setup dans `%TEMP%`, déclenche l'installateur en mode silencieux (`/SILENT`), ferme l'ancienne version et relance la nouvelle en moins de 3 secondes.
+- **Bannière Interactive Néon & Modale Dédiée** : Une notification dynamique apparaît avec le nom et les nouveautés de la version. L'utilisateur peut consulter les notes officielles détaillées avant de valider.
+- **Installation 1-Clic avec Élévation UAC** : Le clic sur *« Mettre à jour maintenant »* télécharge l'installateur dans `%TEMP%`, déclenche l'installation administrative silencieuse (`RunAs`), ferme proprement les tunnels actifs et relance la nouvelle version.
+
+---
+
+## 🩺 Superviseur VPS & Module d'Audit Réseau Télécom
+
+Le panneau d'administration privé ("Superviseur Infrastructure Honotua") permet à l'administrateur de piloter l'ensemble du réseau en temps réel :
+- **Tableau de Bord Télémétrique** : Joueurs connectés, bande passante globale échangée, consommation individuelle du quota VPN et adresses allouées.
+- **Audit de Connexion en 1 Clic (`audit_peer`)** :
+  - **Sonde ICMP Honotua** : 10 pings à haute fréquence vers l'IP WireGuard du joueur avec calcul précis du RTT min/moy/max, gigue et taux de perte.
+  - **Validation MTU 1380 (DF-bit)** : Test d'intégrité de trames de 1380 octets avec drapeau *Don't Fragment* (DF) pour attester de l'absence de fragmentation ou de blocage pare-feu.
+  - **Projection Latences E-Sport** : Mesure simultanée depuis la passerelle de San José vers Steam SDR Los Angeles / Seattle et Cloudflare avec calcul de la latence de jeu finale perçue.
+- **Compression Gzip des Réponses UDP** : Traitement transparent des flux d'administration sur port UDP 4141 avec réduction de taille sous 1 380 octets garantissant le passage inconditionnel sur le câble sous-marin.
 
 ---
 
@@ -87,7 +105,8 @@ Le projet fait l'objet d'un protocole de validation continue rigoureux :
   ├── 3. Pare-Feu d'Isolation L3   [ PASS ] -> FORWARD -i wg0 -o wg0 -j REJECT
   ├── 4. Transit Honotua TCP/UDP   [ PASS ] -> RTT ~108-112 ms sans perte
   ├── 5. Auto-Enrollment Live Test [ PASS ] -> Requête UDP traitée en 112.45 ms
-  └── 6. Téléchargement Public Setup[ PASS ] -> HTTP 200 OK (6.52 Mo)
+  ├── 6. Compression Gzip UDP MTU  [ PASS ] -> Charge utile 1687 -> 627 octets (< 1380)
+  └── 7. Téléchargement Public Setup[ PASS ] -> HTTP 200 OK (9.65 Mo avec pilote Wintun)
 ```
 
 Chaque modification du serveur ou de l'application est vérifiée par sonde directe avant mise en production.
@@ -112,13 +131,14 @@ Pour approfondir les détails d'implémentation, protocoles et sécurité, consu
 ## 🚀 Démarrage Rapide
 
 ### 1. Installation du Client
-Téléchargez l'installateur autonome depuis la dernière [**Release GitHub**](https://github.com/Cioq987/CrazyPing/releases) :
-👉 [**CrazyPing-Setup.exe**](https://github.com/Cioq987/CrazyPing/releases/download/v1.0.1/CrazyPing-Setup.exe)
+Téléchargez la dernière version officielle de CrazyPing :
 
-L'installateur configure automatiquement l'exécutable, les raccourcis et vérifie la présence du pilote Wintun / WireGuard.
+👉 [**Télécharger CrazyPing-Setup.exe (Dernière Version)**](https://github.com/Cioq987/CrazyPing/releases/latest/download/CrazyPing-Setup.exe)
+
+L'installateur configure automatiquement l'exécutable, les raccourcis bureau et installe de façon totalement transparente le pilote réseau officiel Wintun / WireGuard.
 
 ### 2. Mode Superviseur (Privé)
-Le panneau de contrôle administrateur permet à l'administrateur de l'infrastructure de surveiller en direct l'état des liaisons, les adresses IP allouées et les débits effectifs, avec la possibilité d'interrompre ou de révoquer un accès à tout instant.
+Le panneau de contrôle administrateur permet à l'administrateur de l'infrastructure de surveiller en direct l'état des liaisons, les adresses IP allouées et les débits effectifs, avec la possibilité d'auditer l'état réseau de chaque joueur ou de révoquer un accès à tout instant.
 
 ---
 
