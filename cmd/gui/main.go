@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/ecdh"
 	"crypto/rand"
 	"embed"
@@ -18,6 +20,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -37,7 +40,7 @@ var (
 )
 
 const (
-	AppVersion = "1.4.0"
+	AppVersion = "1.4.1"
 	GitHubRepo = "Cioq987/CrazyPing"
 	wgExePath  = `C:\Program Files\WireGuard\wireguard.exe`
 )
@@ -52,10 +55,33 @@ type UpdateInfo struct {
 	ReleaseURL     string `json:"releaseUrl"`
 }
 
+func parseSemVer(v string) (int, int, int) {
+	v = strings.TrimPrefix(strings.TrimSpace(v), "v")
+	parts := strings.Split(v, ".")
+	var maj, min, patch int
+	if len(parts) >= 1 {
+		maj, _ = strconv.Atoi(parts[0])
+	}
+	if len(parts) >= 2 {
+		min, _ = strconv.Atoi(parts[1])
+	}
+	if len(parts) >= 3 {
+		patch, _ = strconv.Atoi(parts[2])
+	}
+	return maj, min, patch
+}
+
 func isNewerVersion(latest, current string) bool {
-	cleanLatest := strings.TrimPrefix(strings.TrimSpace(latest), "v")
-	cleanCurrent := strings.TrimPrefix(strings.TrimSpace(current), "v")
-	return cleanLatest != cleanCurrent && cleanLatest > cleanCurrent
+	lMaj, lMin, lPatch := parseSemVer(latest)
+	cMaj, cMin, cPatch := parseSemVer(current)
+
+	if lMaj != cMaj {
+		return lMaj > cMaj
+	}
+	if lMin != cMin {
+		return lMin > cMin
+	}
+	return lPatch > cPatch
 }
 
 func checkGitHubUpdate() (*UpdateInfo, error) {
@@ -160,10 +186,12 @@ func downloadAndApplyUpdate(downloadURL string, metrics *LiveMetrics) error {
 		// Fermeture propre et immédiate de l'ancienne fenêtre d'interface
 		closeNativeWindow()
 
-		cmd := exec.Command(installerPath, "/SILENT", "/SUPPRESSMSGBOXES", "/FORCECLOSEAPPLICATIONS")
+		// Lancement avec élévation administrative UAC pour garantir l'écrasement des fichiers dans C:\Program Files\CrazyPing
+		psCmd := fmt.Sprintf("Start-Process -FilePath '%s' -ArgumentList '/SILENT /SUPPRESSMSGBOXES /FORCECLOSEAPPLICATIONS' -Verb RunAs", installerPath)
+		cmd := exec.Command("powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", psCmd)
 		hideWindow(cmd)
 		if err := cmd.Start(); err == nil {
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(800 * time.Millisecond)
 		}
 		os.Exit(0)
 	}()
@@ -174,6 +202,7 @@ func downloadAndApplyUpdate(downloadURL string, metrics *LiveMetrics) error {
 type LiveMetrics struct {
 	mu               sync.Mutex
 	logMu            sync.Mutex
+	AppVersion       string   `json:"appVersion"`
 	CurrentRtt       float64  `json:"rtt"`
 	MinRtt           float64  `json:"minRtt"`
 	MaxRtt           float64  `json:"maxRtt"`
@@ -516,6 +545,61 @@ func performAutoEnroll(relayHost string, relayPort int, alias, exeDir string) (*
 	return ident, nil
 }
 
+func findAdminToken(exeDir string) string {
+	var candidates []string
+
+	// 1. Répertoire de travail courant (ex: terminal ou IDE dans D:\Dév\git\CrazyPing)
+	if cwd, err := os.Getwd(); err == nil {
+		candidates = append(candidates, filepath.Join(cwd, "admin.key"))
+	}
+	// 2. Répertoire du binaire exécutable
+	candidates = append(candidates, filepath.Join(exeDir, "admin.key"))
+	// 3. Emplacement racine du dépôt de développement
+	candidates = append(candidates, `D:\Dév\git\CrazyPing\admin.key`)
+	// 4. Emplacement persistant utilisateur %APPDATA%
+	if appData := os.Getenv("APPDATA"); appData != "" {
+		candidates = append(candidates, filepath.Join(appData, "CrazyPing", "admin.key"))
+	}
+	// 5. Emplacement persistant machine %ProgramData%
+	if progData := os.Getenv("ProgramData"); progData != "" {
+		candidates = append(candidates, filepath.Join(progData, "CrazyPing", "admin.key"))
+	}
+	// 6. Profil utilisateur général
+	if userProfile := os.Getenv("USERPROFILE"); userProfile != "" {
+		candidates = append(candidates, filepath.Join(userProfile, ".crazyping", "admin.key"))
+	}
+
+	for _, p := range candidates {
+		if data, err := os.ReadFile(p); err == nil {
+			tok := strings.TrimSpace(string(data))
+			if len(tok) >= 16 {
+				persistAdminToken(tok, exeDir)
+				return tok
+			}
+		}
+	}
+	return ""
+}
+
+func persistAdminToken(tok string, exeDir string) {
+	if appData := os.Getenv("APPDATA"); appData != "" {
+		dir := filepath.Join(appData, "CrazyPing")
+		_ = os.MkdirAll(dir, 0755)
+		_ = os.WriteFile(filepath.Join(dir, "admin.key"), []byte(tok), 0600)
+	}
+
+	if progData := os.Getenv("ProgramData"); progData != "" {
+		dir := filepath.Join(progData, "CrazyPing")
+		_ = os.MkdirAll(dir, 0755)
+		_ = os.WriteFile(filepath.Join(dir, "admin.key"), []byte(tok), 0600)
+	}
+
+	exeKeyPath := filepath.Join(exeDir, "admin.key")
+	if _, err := os.Stat(exeKeyPath); os.IsNotExist(err) {
+		_ = os.WriteFile(exeKeyPath, []byte(tok), 0600)
+	}
+}
+
 func main() {
 	lockHandle, isOnlyInstance := acquireSingleInstanceLock("CrazyPing_App_Instance")
 	if !isOnlyInstance {
@@ -530,16 +614,8 @@ func main() {
 
 	exePath, _ := os.Executable()
 	exeDir := filepath.Dir(exePath)
-	adminKeyPath := filepath.Join(exeDir, "admin.key")
-	adminToken := ""
-	isAdmin := false
-	if data, err := os.ReadFile(adminKeyPath); err == nil {
-		tok := strings.TrimSpace(string(data))
-		if len(tok) >= 16 {
-			adminToken = tok
-			isAdmin = true
-		}
-	}
+	adminToken := findAdminToken(exeDir)
+	isAdmin := adminToken != ""
 
 	ident := loadClientIdentity(exeDir, isAdmin)
 	if ident.IsEnrolled && ident.PrivateKey != "" {
@@ -550,6 +626,7 @@ func main() {
 	usedStr, limStr, pct, blk := tracker.getStatus()
 
 	metrics := &LiveMetrics{
+		AppVersion:             AppVersion,
 		MinRtt:                 104.8,
 		MaxRtt:                 112.1,
 		CurrentRtt:             108.0,
@@ -1000,14 +1077,7 @@ func main() {
 		_, _ = w.Write(data)
 	})
 
-	var (
-		lastHeartbeat int64 = time.Now().Unix()
-		hasConnected  int32 = 0
-	)
-
 	mux.HandleFunc("/api/heartbeat", func(w http.ResponseWriter, r *http.Request) {
-		atomic.StoreInt32(&hasConnected, 1)
-		atomic.StoreInt64(&lastHeartbeat, time.Now().Unix())
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -1019,22 +1089,6 @@ func main() {
 			os.Exit(0)
 		}()
 	})
-
-	// Watchdog : Arrête CrazyPing UNIQUEMENT si l'interface a été fermée
-	// Tolérance de 30 secondes pour résister au throttling d'arrière-plan des navigateurs
-	go func() {
-		time.Sleep(20 * time.Second)
-		ticker := time.NewTicker(3 * time.Second)
-		for range ticker.C {
-			if atomic.LoadInt32(&hasConnected) == 1 {
-				last := atomic.LoadInt64(&lastHeartbeat)
-				if time.Now().Unix()-last > 30 {
-					metrics.stopCurrentTunnels()
-					os.Exit(0)
-				}
-			}
-		}
-	}()
 
 	// Liaison sur un port TCP libre
 	var listener net.Listener
@@ -1133,37 +1187,17 @@ func startVpsPinger(host string, port int, m *LiveMetrics) {
 
 func openNativeWindow(url string) {
 	if runtime.GOOS == "windows" {
-		profileDir := filepath.Join(os.TempDir(), "CrazyPing-WebProfile")
 		edgePaths := []string{
 			`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`,
 			`C:\Program Files\Microsoft\Edge\Application\msedge.exe`,
 		}
 		for _, p := range edgePaths {
 			if _, err := os.Stat(p); err == nil {
-				cmd := exec.Command(p,
-					fmt.Sprintf("--app=%s", url),
-					fmt.Sprintf("--user-data-dir=%s", profileDir),
-					"--window-size=980,720",
-					"--no-first-run",
-					"--no-default-browser-check",
-				)
+				cmd := exec.Command(p, fmt.Sprintf("--app=%s", url), "--window-size=980,720")
 				if err := cmd.Start(); err == nil {
 					browserMu.Lock()
 					activeBrowserCmd = cmd
 					browserMu.Unlock()
-
-					go func() {
-						_ = cmd.Wait()
-						browserMu.Lock()
-						updating := isUpdating
-						browserMu.Unlock()
-						if !updating {
-							if globalMetrics != nil {
-								globalMetrics.stopCurrentTunnels()
-							}
-							os.Exit(0)
-						}
-					}()
 					return
 				}
 			}
@@ -1171,30 +1205,11 @@ func openNativeWindow(url string) {
 
 		chromePath := `C:\Program Files\Google\Chrome\Application\chrome.exe`
 		if _, err := os.Stat(chromePath); err == nil {
-			cmd := exec.Command(chromePath,
-				fmt.Sprintf("--app=%s", url),
-				fmt.Sprintf("--user-data-dir=%s", profileDir),
-				"--window-size=980,720",
-				"--no-first-run",
-				"--no-default-browser-check",
-			)
+			cmd := exec.Command(chromePath, fmt.Sprintf("--app=%s", url), "--window-size=980,720")
 			if err := cmd.Start(); err == nil {
 				browserMu.Lock()
 				activeBrowserCmd = cmd
 				browserMu.Unlock()
-
-				go func() {
-					_ = cmd.Wait()
-					browserMu.Lock()
-					updating := isUpdating
-					browserMu.Unlock()
-					if !updating {
-						if globalMetrics != nil {
-							globalMetrics.stopCurrentTunnels()
-						}
-						os.Exit(0)
-					}
-				}()
 				return
 			}
 		}
@@ -1258,7 +1273,17 @@ func queryVpsAdminAction(relayHost string, relayPort int, adminToken, action, id
 				continue
 			}
 			_ = conn.Close()
-			return pkt.Payload, nil
+
+			payload := pkt.Payload
+			if len(payload) >= 2 && payload[0] == 0x1f && payload[1] == 0x8b {
+				if gz, err := gzip.NewReader(bytes.NewReader(payload)); err == nil {
+					if decompressed, err := io.ReadAll(gz); err == nil {
+						payload = decompressed
+					}
+					_ = gz.Close()
+				}
+			}
+			return payload, nil
 		}
 		_ = conn.Close()
 	}

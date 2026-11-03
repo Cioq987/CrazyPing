@@ -6,6 +6,24 @@ La numérotation des versions respecte les principes du **Semantic Versioning (S
 
 ---
 
+## [1.4.1] - 2026-11-02
+
+### Correctifs & Améliorations de Stabilité
+- **Compression Gzip UDP & Respect Strict du MTU 1380 (Câble Honotua)** :
+  - Compression dynamique des trames d'administration sur le VPS éliminant tout rejet de paquet lié au MTU sous-marin.
+  - Décompression transparente côté client réduisant la charge utile réseau de plus de 75%.
+- **Stabilité Permanente du Superviseur VPS en Arrière-Plan** :
+  - Suppression de l'arrêt intempestif causé par le bridage des temporisateurs Chromium en arrière-plan.
+  - Maintien continu de la supervision et de la liaison de télémétrie locale sans interruption inopinée.
+- **Élévation UAC Automatique du Programme de Mise à Jour** :
+  - Lancement de l'installateur avec élévation des privilèges administrateur (`RunAs`), garantissant le remplacement des binaires dans `C:\Program Files\CrazyPing`.
+- **Habillage Sombre Natif & Intégration Visuelle** :
+  - Intégration de la directive `<meta name="theme-color">` et du fichier `favicon.ico` pour éliminer tout cadre blanc et habiller la barre de titre de la fenêtre native.
+- **Synchronisation Dynamique des Versions** :
+  - Liaison directe des indicateurs visuels de version avec la configuration de build de l'exécutable.
+
+---
+
 ## [1.4.0] - 2026-11-02
 
 ### Nouvelles Fonctionnalités & Supervision Avancée

@@ -3,11 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#030712">
   <title>CrazyPing — Tahiti Gaming Optimizer</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="icon" type="image/png" href="icon.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
+    html, body {
+      background-color: #030712;
+      min-height: 100vh;
+    }
     body {
       background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #090d16 60%, #030712 100%);
       color: #f1f5f9;
@@ -72,7 +78,7 @@
       <!-- Changelog / Notes de version Button -->
       <button id="open-changelog-btn" title="Voir l'historique et les nouveautés de version" class="px-2.5 py-1.5 rounded-xl text-xs font-medium glass hover:border-cyan-500/40 text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer">
         <span>📜</span>
-        <span class="font-mono text-cyan-400" id="current-version-pill">v1.1.1</span>
+        <span class="font-mono text-cyan-400" id="current-version-pill">v1.4.1</span>
       </button>
 
       <!-- Admin Button (Affiché uniquement si admin.key est présent) -->
@@ -110,7 +116,7 @@
       </div>
       <div>
         <div class="text-xs font-bold text-cyan-300 flex items-center gap-2">
-          <span>Nouvelle version disponible : <span id="update-version-label" class="font-mono text-white">v1.0.1</span></span>
+          <span>Nouvelle version disponible : <span id="update-version-label" class="font-mono text-white">v1.4.0</span></span>
           <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold">Mise à jour en 1 clic</span>
         </div>
         <div id="update-name-label" class="text-[11px] text-slate-300 mt-0.5">Nouveaux serveurs et optimisations réseau disponibles.</div>
@@ -388,7 +394,7 @@
           <div>
             <div class="flex items-center gap-2">
               <h2 class="text-base font-extrabold text-white">Nouveautés de la Version</h2>
-              <span id="modal-update-tag" class="text-xs px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-700 font-mono">v1.1.0</span>
+              <span id="modal-update-tag" class="text-xs px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-700 font-mono">v1.4.1</span>
             </div>
             <p id="modal-update-title" class="text-xs text-slate-400">Notes officielles de la mise à jour</p>
           </div>
@@ -957,7 +963,7 @@
     const logsBox = document.getElementById('logs-box');
 
     // Polling API en direct
-    setInterval(async () => {
+    async function pollMetrics() {
       try {
         const res = await fetch('/api/metrics');
         if (res.ok) {
@@ -981,6 +987,12 @@
             });
             logsBox.scrollTop = logsBox.scrollHeight;
             lastLogCount = data.logs.length;
+          }
+
+          // Synchronisation dynamique du pill de version
+          if (data.appVersion) {
+            const pill = document.getElementById('current-version-pill');
+            if (pill) pill.innerText = `v${data.appVersion}`;
           }
 
           // Affichage du bouton Admin si actif
@@ -1065,7 +1077,10 @@
           pingChart.update('none');
         }
       } catch (err) {}
-    }, 1000);
+    }
+
+    pollMetrics();
+    setInterval(pollMetrics, 1000);
 
     // Gestion de la modal Superviseur VPS
     const adminModal = document.getElementById('admin-modal');
@@ -1629,7 +1644,7 @@
 
         container.innerHTML = `
           <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-slate-300 space-y-2">
-            <h3 class="text-sm font-bold text-cyan-400">CrazyPing v1.1.1</h3>
+            <h3 class="text-sm font-bold text-cyan-400">CrazyPing v1.4.1</h3>
             <p class="text-xs text-slate-400">Historique complet consultable directement sur GitHub Releases.</p>
             <a href="https://github.com/Cioq987/CrazyPing/releases" target="_blank" class="inline-block px-3 py-1.5 rounded-xl bg-cyan-950 text-cyan-300 border border-cyan-800 hover:bg-cyan-900 text-xs font-semibold transition">
               Consulter sur GitHub Releases &rarr;
@@ -1856,9 +1871,11 @@
       }
     });
 
-    // Arrêt propre dès la fermeture de la fenêtre (clic sur la croix)
-    window.addEventListener('beforeunload', () => {
-      navigator.sendBeacon('/api/exit');
+    // Arrêt propre lors de la fermeture définitive de la fenêtre
+    window.addEventListener('pagehide', (e) => {
+      if (!e.persisted) {
+        navigator.sendBeacon('/api/exit');
+      }
     });
   </script>
 </body>

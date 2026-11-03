@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
@@ -697,11 +699,22 @@ func handleAdminUDP(pkt *protocol.Packet, conn *net.UDPConn, clientAddr *net.UDP
 	}
 
 	if respPayload != nil {
+		finalPayload := respPayload
+		// Si la charge utile dépasse 600 octets, compression gzip automatique pour respecter
+		// impérativement le MTU de 1380 octets du câble sous-marin Honotua
+		if len(respPayload) > 600 {
+			var b bytes.Buffer
+			gz := gzip.NewWriter(&b)
+			_, _ = gz.Write(respPayload)
+			_ = gz.Close()
+			finalPayload = b.Bytes()
+		}
+
 		resp := &protocol.Packet{
 			Type:      protocol.TypeAdminResp,
 			Seq:       pkt.Seq,
 			Timestamp: time.Now().UnixNano(),
-			Payload:   respPayload,
+			Payload:   finalPayload,
 		}
 		_, _ = conn.WriteToUDP(resp.Encode(), clientAddr)
 	}
