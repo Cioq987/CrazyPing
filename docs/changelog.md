@@ -6,6 +6,29 @@ La numérotation des versions respecte les principes du **Semantic Versioning (S
 
 ---
 
+## [1.4.3] - 2026-11-03
+
+### Amélioration du Déploiement & Expérience Utilisateur
+- **Finalisation de l'Auto-Updater Silencieux (%LOCALAPPDATA%\\Programs)** :
+  - Installation utilisateur sans friction et élimination du code d'élévation 740.
+  - Déclenchement automatique de la nouvelle version et purge des anciens raccourcis publics.
+- **Routage et Stabilité Réseau** :
+  - Préservation continue des identités, profils de jeux et supervision temps réel.
+
+---
+
+## [1.4.2] - 2026-11-03
+
+### Architecture de Déploiement & Expérience Utilisateur
+- **Migration Espace Utilisateur (%LOCALAPPDATA%\\Programs)** :
+  - Déplacement de l'installation vers l'espace applicatif utilisateur pour des mises à jour 100% silencieuses sans blocage UAC.
+  - Élimination définitive des blocages d'écriture et chargement direct du profil graphique natif sombre.
+- **Migration Automatique et Transparente des Données Joueur** :
+  - Rapatriement automatique des identités Curve25519 (`client_identity.json`), jetons et profils de jeux locaux depuis l'ancien répertoire `Program Files`.
+  - Préservation intégrale de la configuration joueur sans aucune intervention manuelle.
+
+---
+
 ## [1.4.1] - 2026-11-02
 
 ### Correctifs & Améliorations de Stabilité

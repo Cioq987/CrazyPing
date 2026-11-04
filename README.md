@@ -1,6 +1,6 @@
 # CrazyPing — Accélérateur Réseau & Réducteur de Latence Haute Performance
 
-[![Version](https://img.shields.io/badge/Version-v1.4.1-cyan.svg?style=flat)](https://github.com/Cioq987/CrazyPing/releases/latest)
+[![Version](https://img.shields.io/badge/Version-v1.4.3-cyan.svg?style=flat)](https://github.com/Cioq987/CrazyPing/releases/latest)
 [![Go Version](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D6?style=flat)](https://github.com/Cioq987/CrazyPing)
 [![Latency](https://img.shields.io/badge/Tahiti%20%E2%86%92%20San%20Jos%C3%A9-~108%20ms-brightgreen)](docs/ROUTING_TABLES.md)

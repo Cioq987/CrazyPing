@@ -40,7 +40,7 @@ var (
 )
 
 const (
-	AppVersion = "1.4.1"
+	AppVersion = "1.4.3"
 	GitHubRepo = "Cioq987/CrazyPing"
 	wgExePath  = `C:\Program Files\WireGuard\wireguard.exe`
 )
@@ -186,13 +186,14 @@ func downloadAndApplyUpdate(downloadURL string, metrics *LiveMetrics) error {
 		// Fermeture propre et immédiate de l'ancienne fenêtre d'interface
 		closeNativeWindow()
 
-		// Lancement avec élévation administrative UAC pour garantir l'écrasement des fichiers dans C:\Program Files\CrazyPing
-		psCmd := fmt.Sprintf("Start-Process -FilePath '%s' -ArgumentList '/SILENT /SUPPRESSMSGBOXES /FORCECLOSEAPPLICATIONS' -Verb RunAs", installerPath)
-		cmd := exec.Command("powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", psCmd)
+		// Lancement silencieux direct (installation utilisateur sans UAC) avec repli UAC si nécessaire
+		cmd := exec.Command(installerPath, "/SILENT", "/SUPPRESSMSGBOXES", "/FORCECLOSEAPPLICATIONS")
 		hideWindow(cmd)
-		if err := cmd.Start(); err == nil {
-			time.Sleep(800 * time.Millisecond)
+		if err := cmd.Start(); err != nil {
+			psCmd := fmt.Sprintf("Start-Process -FilePath '%s' -ArgumentList '/SILENT /SUPPRESSMSGBOXES /FORCECLOSEAPPLICATIONS' -Verb RunAs", installerPath)
+			_ = exec.Command("powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", psCmd).Start()
 		}
+		time.Sleep(800 * time.Millisecond)
 		os.Exit(0)
 	}()
 
@@ -345,6 +346,19 @@ func loadClientIdentity(exeDir string, isAdmin bool) *ClientIdentity {
 		var ident ClientIdentity
 		if json.Unmarshal(data, &ident) == nil && ident.IsEnrolled {
 			return &ident
+		}
+	}
+
+	// Migration transparente : si le fichier n'est pas encore dans le dossier courant (ex: passage à %LOCALAPPDATA%),
+	// on vérifie l'ancien emplacement Program Files
+	oldPath := `C:\Program Files\CrazyPing\client_identity.json`
+	if oldPath != path {
+		if data, err := os.ReadFile(oldPath); err == nil {
+			var ident ClientIdentity
+			if json.Unmarshal(data, &ident) == nil && ident.IsEnrolled {
+				_ = saveClientIdentity(exeDir, &ident)
+				return &ident
+			}
 		}
 	}
 	if isAdmin {
