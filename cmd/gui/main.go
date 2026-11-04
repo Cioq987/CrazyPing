@@ -638,6 +638,11 @@ func main() {
 
 	tracker := newVpnQuotaTracker(exeDir)
 	usedStr, limStr, pct, blk := tracker.getStatus()
+	if isAdmin {
+		limStr = "Illimité"
+		pct = 0
+		blk = false
+	}
 
 	metrics := &LiveMetrics{
 		AppVersion:             AppVersion,
@@ -695,7 +700,7 @@ func main() {
 				delta, err := metrics.quotaTracker.sampleVpnInterface()
 				if err == nil && delta > 0 {
 					blocked := metrics.quotaTracker.recordBytes(delta)
-					if blocked {
+					if blocked && !metrics.IsAdmin {
 						metrics.AppendLog("[Quota VPN] Limite journalière de 10 Go atteinte. Coupure automatique du VPN USA.")
 						metrics.stopCurrentTunnels()
 					}
@@ -705,9 +710,15 @@ func main() {
 			used, lim, pct, blk := metrics.quotaTracker.getStatus()
 			metrics.mu.Lock()
 			metrics.VpnQuotaUsedFormatted = used
-			metrics.VpnQuotaLimitFormatted = lim
-			metrics.VpnQuotaPercent = pct
-			metrics.VpnQuotaBlocked = blk
+			if metrics.IsAdmin {
+				metrics.VpnQuotaLimitFormatted = "Illimité"
+				metrics.VpnQuotaPercent = 0
+				metrics.VpnQuotaBlocked = false
+			} else {
+				metrics.VpnQuotaLimitFormatted = lim
+				metrics.VpnQuotaPercent = pct
+				metrics.VpnQuotaBlocked = blk
+			}
 			metrics.mu.Unlock()
 		}
 	}()
@@ -921,7 +932,7 @@ func main() {
 			}
 			if strings.Contains(strings.ToLower(activeConf), "globalvpn") {
 				metrics.mu.Lock()
-				blocked := metrics.VpnQuotaBlocked
+				blocked := metrics.VpnQuotaBlocked && !metrics.IsAdmin
 				metrics.mu.Unlock()
 				if blocked {
 					metrics.AppendLog("[Quota VPN] Impossible de démarrer : quota journalier de 10 Go atteint.")
@@ -973,7 +984,7 @@ func main() {
 
 		if strings.Contains(strings.ToLower(conf), "globalvpn") {
 			metrics.mu.Lock()
-			blocked := metrics.VpnQuotaBlocked
+			blocked := metrics.VpnQuotaBlocked && !metrics.IsAdmin
 			metrics.mu.Unlock()
 			if blocked {
 				metrics.AppendLog("[Quota VPN] Impossible de sélectionner le VPN USA : quota journalier de 10 Go atteint.")

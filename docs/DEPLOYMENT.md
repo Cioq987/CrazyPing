@@ -99,7 +99,7 @@ sudo chmod +x /usr/local/bin/crazyping-server
 ```
 
 ### 4.3 Service Systemd (`/etc/systemd/system/crazyping-server.service`)
-Créez le service de supervision autonome :
+Créez le service démon relais autonome :
 
 ```ini
 [Unit]

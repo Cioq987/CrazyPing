@@ -101,33 +101,7 @@ sequenceDiagram
 
 ---
 
-### 2.3 Plan de Contrôle Administratif & Supervision
-
-Le tableau de bord administrateur interroge l'état des pairs WireGuard via une authentification symétrique à challenge non rejouable.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant AdminUI as Interface Supervision
-    participant LocalClient as Client Local (Admin)
-    participant RelayDaemon as Démon Relais (VPS)
-    participant WGKernel as Noyau Linux wg0
-
-    AdminUI->>LocalClient: GET /api/admin/peers
-    LocalClient->>LocalClient: Lecture clé secrète locale admin.key
-    LocalClient->>LocalClient: Génération Nonce (Timestamp UnixNano)
-    LocalClient->>LocalClient: Calcul HMAC/Hash = SHA256(Nonce + admin.key)
-    LocalClient->>RelayDaemon: TypeAdminReq [UDP 4141] (Action: "list", TokenHash, Nonce)
-    RelayDaemon->>RelayDaemon: Vérification validité Nonce (< 5s) & TokenHash
-    RelayDaemon->>WGKernel: Lecture dump wg0 (wg show wg0 dump)
-    WGKernel-->>RelayDaemon: Données brutes (Tx/Rx, Handshake, Endpoint)
-    RelayDaemon-->>LocalClient: TypeAdminResp (Payload JSON structuré)
-    LocalClient-->>AdminUI: Affichage métriques temps-réel (Débits, Pings, Joueurs)
-```
-
----
-
-### 2.4 Chien de Garde (Watchdog) et Extinction Propre
+### 2.3 Chien de Garde (Watchdog) et Extinction Propre
 
 Afin de garantir qu'aucun résidu d'adaptateur réseau ou de processus orphelin ne persiste sur le système hôte lors de la fermeture de la fenêtre, CrazyPing met en œuvre un mécanisme de battement de cœur synchronisé.
 

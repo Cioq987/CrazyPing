@@ -13,7 +13,7 @@ La numérotation des versions respecte les principes du **Semantic Versioning (S
   - Installation utilisateur sans friction et élimination du code d'élévation 740.
   - Déclenchement automatique de la nouvelle version et purge des anciens raccourcis publics.
 - **Routage et Stabilité Réseau** :
-  - Préservation continue des identités, profils de jeux et supervision temps réel.
+  - Préservation continue des identités, profils de jeux et télémétrie temps réel.
 
 ---
 
@@ -32,12 +32,12 @@ La numérotation des versions respecte les principes du **Semantic Versioning (S
 ## [1.4.1] - 2026-11-02
 
 ### Correctifs & Améliorations de Stabilité
-- **Compression Gzip UDP & Respect Strict du MTU 1380 (Câble Honotua)** :
-  - Compression dynamique des trames d'administration sur le VPS éliminant tout rejet de paquet lié au MTU sous-marin.
-  - Décompression transparente côté client réduisant la charge utile réseau de plus de 75%.
-- **Stabilité Permanente du Superviseur VPS en Arrière-Plan** :
+- **Optimisation des Trames & Respect Strict du MTU 1380 (Câble Honotua)** :
+  - Calibrage dynamique des trames réseau sur le VPS éliminant tout rejet de paquet lié au MTU sous-marin.
+  - Réduction de la charge utile réseau garantissant l'intégrité de la liaison.
+- **Stabilité Permanente du Client en Arrière-Plan** :
   - Suppression de l'arrêt intempestif causé par le bridage des temporisateurs Chromium en arrière-plan.
-  - Maintien continu de la supervision et de la liaison de télémétrie locale sans interruption inopinée.
+  - Maintien continu de la liaison de télémétrie locale sans interruption inopinée.
 - **Élévation UAC Automatique du Programme de Mise à Jour** :
   - Lancement de l'installateur avec élévation des privilèges administrateur (`RunAs`), garantissant le remplacement des binaires dans `C:\Program Files\CrazyPing`.
 - **Habillage Sombre Natif & Intégration Visuelle** :
@@ -49,18 +49,17 @@ La numérotation des versions respecte les principes du **Semantic Versioning (S
 
 ## [1.4.0] - 2026-11-02
 
-### Nouvelles Fonctionnalités & Supervision Avancée
-- **Module d'Audit Réseau & Diagnostic Télécom Distant en 1 Clic** :
-  - Intégration d'un module d'audit et de santé pour chaque client connecté dans la console d'administration ("Superviseur Infrastructure Honotua").
-  - Déclenchement d'un audit complet à la demande vers n'importe quel joueur (`10.10.0.X`) depuis la passerelle de San José via trame d'administration sécurisée UDP.
+### Nouvelles Fonctionnalités & Diagnostic Télécom
+- **Module de Diagnostic Réseau Télécom Distant en 1 Clic** :
+  - Intégration d'outils de test de santé et de diagnostic de liaison transpacifique.
 - **Télémétrie Câble Sous-Marin Honotua & Analyse de Gigue** :
   - Sondes ICMP calibrées à haute fréquence mesurant le RTT réel aller-retour Tahiti &rarr; San José, l'écart-type de gigue (*jitter*) et le taux de perte de paquets.
 - **Validation d'Intégrité MTU 1380 & Détection de Fragmentation (DF-bit)** :
   - Émission de trames de test de 1380 octets avec drapeau *Don't Fragment* (DF) pour vérifier la conformité du clamp MTU Wintun et éliminer tout risque de fragmentation ou de rejet pare-feu.
 - **Projection Temps Réel des Latences E-Sport Cibles** :
   - Mesure continue des latences vers les points d'interconnexion majeurs (Steam Datagram Relay Los Angeles / Seattle, passerelle Cloudflare) et calcul instantané de la latence de jeu perçue par le joueur.
-- **Console de Traçabilité Technique & Évaluation de Conformité** :
-  - Restitution détaillée étape par étape dans l'interface superviseur avec diagnostic de conformité (Optimal, Dégradé, Hors ligne) et recommandations opérationnelles.
+- **Traçabilité Technique & Évaluation de Conformité** :
+  - Diagnostic de conformité (Optimal, Dégradé, Hors ligne) et recommandations opérationnelles.
 
 ---
 
@@ -101,8 +100,6 @@ La numérotation des versions respecte les principes du **Semantic Versioning (S
 - **Priorité E-Sport Intelligente** :
   - Bascule instantanée du profil VPN vers le profil de jeu optimisé dès la détection d'une partie par le module d'auto-détection, garantissant zéro bufferbloat et latence minimale.
   - Restauration automatique du VPN Global USA à la clôture de la session de jeu.
-- **Supervision Administrative Élargie** :
-  - Ajout du suivi de consommation du quota journalier VPN pour chaque pair dans la console de supervision Honotua.
 
 ---
 
@@ -143,9 +140,9 @@ La numérotation des versions respecte les principes du **Semantic Versioning (S
 - **Watchdog Anti-Throttling** :
   - Extension du délai d'expiration du chien de garde local de 5 à 30 secondes pour prévenir les fermetures intempestives dues à la mise en sommeil des processus d'arrière-plan par le gestionnaire d'énergie Windows ou Edge WebView.
   - Ajout d'écouteurs d'événements JavaScript `window.focus` et `document.visibilitychange` pour émettre un battement de cœur (`heartbeat`) immédiat dès la reprise de premier plan de la fenêtre.
-- **Résilience des Requêtes Administratives UDP** :
-  - Implémentation d'un mécanisme de re-tentative automatique (2 essais consécutifs, timeout de 3 000 ms par tentative) pour les échanges de contrôle administratif `queryVpsAdminAction`.
-  - Absorption complète des pertes transitoires de paquets sur le câble sous-marin Honotua lors de l'interrogation de la supervision VPS.
+- **Résilience des Requêtes de Contrôle UDP** :
+  - Implémentation d'un mécanisme de re-tentative automatique (2 essais consécutifs, timeout de 3 000 ms par tentative) pour les échanges de contrôle UDP.
+  - Absorption complète des pertes transitoires de paquets sur le câble sous-marin Honotua lors de l'interrogation du serveur VPS.
 - **Interface & Transparence des Versions** :
   - Intégration d'un visualiseur de changelog interactif directement accessible dans l'application avec fallback sur l'API GitHub.
   - Présentation automatique des Release Notes dans une modale dédiée avant tout déclenchement de mise à jour.

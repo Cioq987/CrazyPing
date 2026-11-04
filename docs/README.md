@@ -71,4 +71,4 @@ flowchart LR
 - **Driver Virtuel Windows** : Wintun (`wintun.sys` Ring 0), MTU calibré à 1380 octets.
 - **Routage** : Split-tunneling sélectif par tables CIDR dédiées (aucun détournement du trafic système standard).
 - **Interface Utilisateur** : Binaire autonome compilé statiquement en Go avec ressources web embarquées (`//go:embed`) affichées via Edge WebView native.
-- **Supervision & Télémétrie** : Paquets binaires propriétaires de 23 octets sur UDP 4141 avec challenge cryptographique SHA-256.
+- **Sondes RTT & Télémétrie** : Paquets binaires propriétaires de 23 octets sur UDP 4141 avec challenge cryptographique SHA-256 pour la mesure continue de latence et de gigue.

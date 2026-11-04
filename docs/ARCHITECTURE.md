@@ -88,11 +88,10 @@ L'architecture repose sur un modèle hybride client-relais :
 - **Sous-réseau Privé** : `10.10.0.0/24`. L'interface serveur est fixée à `10.10.0.1`, le client maître à `10.10.0.2`, et les pairs invités reçoivent des baux de `10.10.0.3` à `10.10.0.254`.
 - **Forwarding IP** : Activé via `net.ipv4.ip_forward = 1` avec translation d'adresses source (`iptables -t nat -A POSTROUTING -o ens3 -j MASQUERADE`).
 
-### 4.2 Superviseur et Démon de Contrôle (`crazyping-server`)
+### 4.2 Démon Serveur de Télémétrie et Routage (`crazyping-server`)
 - Démon Go autonome géré par `systemd` (`crazyping-server.service`).
-- Écoute sur le port UDP `4141` pour le contrôle de latence RTT et les commandes d'administration chiffrées.
-- Écoute sur le port TCP `4140` en HTTP REST interne pour la supervision des métriques.
-- Parse directement l'état de la table d'états WireGuard (`wg show wg0 dump`) pour calculer les débits entrants/sortants et l'activité temporelle de chaque joueur.
+- Écoute sur le port UDP `4141` pour le contrôle de latence RTT et l'enrôlement dynamique des baux réseau.
+- Maintient la cohérence des sessions et surveille la stabilité de la liaison transpacifique.
 
 ---
 

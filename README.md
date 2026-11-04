@@ -15,8 +15,6 @@ L'application s'appuie sur une pile réseau hybride de haute précision :
 - **Routage Sélectif (Split-Tunneling)** : Seuls les paquets UDP/TCP des jeux ciblés empruntent la dorsale optimisée ; la navigation web et les appels Discord restent sur les routes locales sans aucune latence additionnelle.
 - **Auto-Détection des Jeux en Temps Réel** : Surveillance dynamique des processus exécutables et commutation automatique du profil de tunnel dès le lancement du jeu.
 - **Mode VPN Global USA & Quota Hybride** : Navigation complète via une adresse IP américaine dédiée avec jauge journalière de 10 Go/jour.
-- **Console Superviseur & Audit Réseau Télécom à Distance** : Supervision des pairs connectés, métriques en temps réel et diagnostic de santé complet en 1 clic (RTT câble Honotua, gigue, intégrité MTU 1380 avec drapeau DF, projection des latences cibles Steam SDR / Cloudflare).
-- **Compression Dynamique Gzip UDP** : Compression temps réel des trames d'administration réduisant la charge utile réseau de 77% pour garantir l'acheminement sous le seuil critique des 1 380 octets.
 - **Auto-Mise à Jour Transparente (Auto-Updater)** : Détection asynchrone, affichage des notes de version avant application et mise à niveau en 1 clic avec élévation administrative Windows (`RunAs`).
 
 ---
@@ -82,18 +80,6 @@ L'application intègre un moteur de mise à jour autonome connecté directement 
 
 ---
 
-## 🩺 Superviseur VPS & Module d'Audit Réseau Télécom
-
-Le panneau d'administration privé ("Superviseur Infrastructure Honotua") permet à l'administrateur de piloter l'ensemble du réseau en temps réel :
-- **Tableau de Bord Télémétrique** : Joueurs connectés, bande passante globale échangée, consommation individuelle du quota VPN et adresses allouées.
-- **Audit de Connexion en 1 Clic (`audit_peer`)** :
-  - **Sonde ICMP Honotua** : 10 pings à haute fréquence vers l'IP WireGuard du joueur avec calcul précis du RTT min/moy/max, gigue et taux de perte.
-  - **Validation MTU 1380 (DF-bit)** : Test d'intégrité de trames de 1380 octets avec drapeau *Don't Fragment* (DF) pour attester de l'absence de fragmentation ou de blocage pare-feu.
-  - **Projection Latences E-Sport** : Mesure simultanée depuis la passerelle de San José vers Steam SDR Los Angeles / Seattle et Cloudflare avec calcul de la latence de jeu finale perçue.
-- **Compression Gzip des Réponses UDP** : Traitement transparent des flux d'administration sur port UDP 4141 avec réduction de taille sous 1 380 octets garantissant le passage inconditionnel sur le câble sous-marin.
-
----
-
 ## 🧪 Validation Réseau & Batterie de Tests Automatisés
 
 Le projet fait l'objet d'un protocole de validation continue rigoureux :
@@ -105,7 +91,7 @@ Le projet fait l'objet d'un protocole de validation continue rigoureux :
   ├── 3. Pare-Feu d'Isolation L3   [ PASS ] -> FORWARD -i wg0 -o wg0 -j REJECT
   ├── 4. Transit Honotua TCP/UDP   [ PASS ] -> RTT ~108-112 ms sans perte
   ├── 5. Auto-Enrollment Live Test [ PASS ] -> Requête UDP traitée en 112.45 ms
-  ├── 6. Compression Gzip UDP MTU  [ PASS ] -> Charge utile 1687 -> 627 octets (< 1380)
+  ├── 6. Intégrité Trames Réseau MTU [ PASS ] -> Flux sous le seuil critique des 1 380 octets
   └── 7. Téléchargement Public Setup[ PASS ] -> HTTP 200 OK (9.65 Mo avec pilote Wintun)
 ```
 
@@ -119,7 +105,7 @@ Pour approfondir les détails d'implémentation, protocoles et sécurité, consu
 
 - [**Index & Cartographie Documentaire**](docs/README.md) : Sommaire unifié et diagramme d'architecture système global.
 - [**Architecture Réseau et Logicielle**](docs/ARCHITECTURE.md) : Décomposition en couches (Kernel, Engine Go, UI), cycle de vie, watchdog HTTP/Beacon et protocole de contrôle.
-- [**Flux Réseau et Protocoles**](docs/flows.md) : Format binaire 23 octets, diagrammes de séquence Mermaid (enrôlement Curve25519, télémétrie RTT, administration).
+- [**Flux Réseau et Protocoles**](docs/flows.md) : Format binaire 23 octets, diagrammes de séquence Mermaid (enrôlement Curve25519, télémétrie RTT).
 - [**Cas d'Utilisation Système**](docs/use-cases.md) : Scénarios nominaux et d'erreur (démarrage, split-tunneling, auto-updater, arrêt sécurisé).
 - [**Tables de Routage et Split-Tunneling**](docs/ROUTING_TABLES.md) : Liste exhaustive des sous-réseaux CIDR qualifiés et calcul du MTU optimal (1380 octets).
 - [**Modèle de Sécurité et Analyse des Menaces**](docs/SECURITY.md) : Cloisonnement L3 inter-clients, cryptokey routing, enrôlement dynamique ZTNA et comparatif légal.
@@ -130,15 +116,12 @@ Pour approfondir les détails d'implémentation, protocoles et sécurité, consu
 
 ## 🚀 Démarrage Rapide
 
-### 1. Installation du Client
+### Installation du Client
 Téléchargez la dernière version officielle de CrazyPing :
 
 👉 [**Télécharger CrazyPing-Setup.exe (Dernière Version)**](https://github.com/Cioq987/CrazyPing/releases/latest/download/CrazyPing-Setup.exe)
 
 L'installateur configure automatiquement l'exécutable, les raccourcis bureau et installe de façon totalement transparente le pilote réseau officiel Wintun / WireGuard.
-
-### 2. Mode Superviseur (Privé)
-Le panneau de contrôle administrateur permet à l'administrateur de l'infrastructure de surveiller en direct l'état des liaisons, les adresses IP allouées et les débits effectifs, avec la possibilité d'auditer l'état réseau de chaque joueur ou de révoquer un accès à tout instant.
 
 ---
 

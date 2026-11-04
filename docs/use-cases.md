@@ -12,9 +12,8 @@ Ce document recense les scénarios d'utilisation majeurs de l'application **Craz
 | **UC-02** | Enrôlement Automatique du Joueur | Joueur | Déclaration du pseudo, négociation dynamique de bail IP et génération locale des configurations WireGuard. |
 | **UC-03** | Activation d'un Profil de Split-Tunneling | Joueur | Sélection d'un titre (Valorant, LoL, etc.), instanciation du pilote Wintun et injection des routes CIDR. |
 | **UC-04** | Désactivation du Tunnel | Joueur | Fermeture de l'interface Wintun et rétablissement transparent des routes par défaut. |
-| **UC-05** | Supervision Administrative du Relais | Administrateur | Consultation de l'état des pairs WireGuard, des débits temps-réel et révocation d'accès via `admin.key`. |
-| **UC-06** | Mise à Jour Automatique du Binaire | Joueur / Système | Détection d'une nouvelle version sur GitHub Releases, téléchargement et exécution de l'installateur autonome. |
-| **UC-07** | Surveillance et Extinction Sécurisée (Watchdog) | Système (Chien de garde) | Détection de l'inactivité de l'interface graphique et libération forcée des adaptateurs réseau. |
+| **UC-05** | Mise à Jour Automatique du Binaire | Joueur / Système | Détection d'une nouvelle version sur GitHub Releases, téléchargement et exécution de l'installateur autonome. |
+| **UC-06** | Surveillance et Extinction Sécurisée (Watchdog) | Système (Chien de garde) | Détection de l'inactivité de l'interface graphique et libération forcée des adaptateurs réseau. |
 
 ---
 
@@ -82,28 +81,12 @@ Ce document recense les scénarios d'utilisation majeurs de l'application **Craz
 
 ---
 
-### UC-05 : Supervision Administrative du Relais
-- **Acteur** : Ingénieur Réseau / Administrateur de l'infrastructure.
-- **Prérequis** : Présence du fichier `admin.key` sur le poste local (clé cryptographique secrète non commitée).
-- **Déroulement Nominal** :
-  1. L'administrateur clique sur le bouton **Supervision VPS** dans l'interface graphique.
-  2. L'application vérifie la présence de `admin.key`. Si la clé est introuvable, l'accès est refusé avec un message de restriction d'autorisation.
-  3. Le client émet une requête `TypeAdminReq` vers le port UDP 4141 du relais, signée à l'aide d'un jeton à usage unique calculé par hachage SHA-256 avec horodatage strict (nonce anti-rejeu).
-  4. Le démon relais valide l'empreinte et exécute `wg show wg0 dump`.
-  5. Le serveur retourne la liste exhaustive des pairs connectés, leur bande passante (octets émis/reçus), le dernier handshake et le statut en ligne/hors-ligne.
-  6. L'interface affiche la table de supervision avec possibilité de révocation d'un joueur en temps réel.
-- **Cas d'Erreur** :
-  - *Clé administrative invalide ou obsolète* : Le relais rejette la requête silencieusement ou renvoie un statut d'erreur cryptographique.
-  - *Délai de réponse dépassé* : Un mécanisme de re-tentative automatique (2 essais, timeout 3s) pallie les pertes transitoires de paquets sur le lien sous-marin.
-
----
-
-### UC-06 : Mise à Jour Automatique du Binaire
+### UC-05 : Mise à Jour Automatique du Binaire
 - **Acteur** : Joueur / Système.
 - **Prérequis** : Accès HTTPS sortant vers `api.github.com`.
 - **Déroulement Nominal** :
-  1. Au lancement de l'interface, le client interroge l'endpoint GitHub Releases (`https://api.github.com/repos/Cioq/CrazyPing/releases/latest`).
-  2. Le client compare le tag distant (ex: `v1.2.0`) avec la constante interne `AppVersion` (`v1.1.0`).
+  1. Au lancement de l'interface, le client interroge l'endpoint GitHub Releases (`https://api.github.com/repos/Cioq987/CrazyPing/releases/latest`).
+  2. Le client compare le tag distant (ex: `v1.4.3`) avec la constante interne `AppVersion`.
   3. Si une version plus récente est disponible, un bandeau d'alerte s'affiche sur l'interface proposant la mise à jour en un clic.
   4. L'utilisateur clique sur **Télécharger et Installer**.
   5. Le binaire télécharge l'exécutable d'installation autonome `CrazyPing-Setup.exe` dans le dossier temporaire système.
@@ -111,7 +94,7 @@ Ce document recense les scénarios d'utilisation majeurs de l'application **Craz
 
 ---
 
-### UC-07 : Surveillance et Extinction Sécurisée (Watchdog)
+### UC-06 : Surveillance et Extinction Sécurisée (Watchdog)
 - **Acteur** : Système (Chien de garde autonome).
 - **Prérequis** : Processus `CrazyPing.exe` en cours d'exécution.
 - **Déroulement Nominal** :

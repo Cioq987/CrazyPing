@@ -173,7 +173,7 @@ func updatePeerQuotaFile(ip string, iptablesBytes uint64, currentDate string) {
 	}
 
 	q.BytesUsed = iptablesBytes
-	if q.BytesUsed >= ServerDailyQuotaBytes && !q.Blocked {
+	if ip != "10.10.0.2" && q.BytesUsed >= ServerDailyQuotaBytes && !q.Blocked {
 		q.Blocked = true
 		log.Printf("[QUOTA] Joueur %s a atteint son quota VPN journalier (10 Go). Blocage du forwarding web.", ip)
 		_ = exec.Command("sudo", "iptables", "-I", "CP_VPN_QUOTA", "1", "-s", ip, "-j", "REJECT").Run()
@@ -226,5 +226,8 @@ func getServerPeerQuota(ip string) (formatted string, blocked bool) {
 	}
 
 	gb := float64(q.BytesUsed) / (1024 * 1024 * 1024)
+	if ip == "10.10.0.2" {
+		return fmt.Sprintf("%.2f Go / Illimité", gb), false
+	}
 	return fmt.Sprintf("%.2f Go / 10 Go", gb), q.Blocked
 }

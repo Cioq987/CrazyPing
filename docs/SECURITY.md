@@ -30,7 +30,6 @@ CrazyPing repose sur un paradigme **Zero-Trust Network Access (ZTNA)** adapté a
 ### Principes Directeurs
 1. **Confidentialité et Intégrité Cryptographique** : Tout le trafic réseau d'optimisation est chiffré de bout en bout entre l'adaptateur virtuel Wintun du client et le noyau Linux du VPS via le protocole WireGuard (Noise Protocol Framework).
 2. **Cloisonnement Strict L3** : Les clients connectés au relais ne peuvent en aucun cas communiquer entre eux, sonder leurs ports locaux ou intercepter le trafic d'un autre utilisateur.
-3. **Contrôle d'Accès Supervision Séparé** : Le plan de contrôle administratif (Superviseur) est strictement isolé du plan de données et protégé par challenge cryptographique symétrique (SHA-256 + nonce).
 
 ---
 
@@ -70,35 +69,28 @@ Chaque clé publique WireGuard autorisée sur le serveur est explicitement liée
 
 ---
 
-## 4. Protocole d'Enrôlement Dynamique et Modération Superviseur
+## 4. Protocole d'Enrôlement Dynamique Automatisé
 
-Pour éviter la diffusion statique de fichiers de configuration contenant des clés pré-partagées ou pré-générées, CrazyPing intègre un système d'enrôlement dynamique à validation humaine :
+Pour éviter la diffusion statique de fichiers de configuration contenant des clés pré-partagées ou pré-générées, CrazyPing intègre un système d'enrôlement dynamique ZTNA :
 
-### Séquence d'Approbation
+### Séquence d'Enrôlement
 
 ```
-Client (Nouveau Joueur)               Serveur Relais VPS             Superviseur (Admin)
-          |                                   |                              |
-          |--- TypeEnrollReq (Nom, PubKey) -->|                              |
-          |    (UDP 4141)                     |-- Stocke en mémoire pending  |
-          |                                   |                              |
-          |                                   |<-- Polling GET /pending -----|
-          |                                   |--- Renvoie liste demandes -->|
-          |                                   |                              |
-          |                                   |<-- Action Approve (UUID) ----|
-          |                                   |    (Signé Token Admin)       |
-          |                                   |                              |
-          |                                   |-- Alloue IP (10.10.0.X)      |
-          |                                   |-- `wg set wg0 peer ...`      |
-          |<-- TypeEnrollResp (Status=OK) ----|                              |
-          |    (IP allouée + Clé Pub VPS)     |                              |
-          |                                   |                              |
-    Tunnel WireGuard Actif                    |                              |
+Client (Nouveau Joueur)               Serveur Relais VPS
+          |                                   |
+          |--- TypeEnrollReq (Nom, PubKey) -->|
+          |    (UDP 4141)                     |-- Validation format Curve25519
+          |                                   |-- Allocation IP disponible (10.10.0.X)
+          |                                   |-- Inscription peer dans wg0
+          |<-- TypeEnrollResp (Status=OK) ----|
+          |    (IP allouée + Clé Pub VPS)     |
+          |                                   |
+    Tunnel WireGuard Actif
 ```
 
 1. **Génération locale des secrets** : La clé privée du client est générée sur sa machine et ne transite jamais sur le réseau.
-2. **Demande en attente (Quarantine Queue)** : Tant que l'administrateur n'a pas validé explicitement la demande depuis le dashboard superviseur, aucun accès réseau n'est injecté dans `wg0`.
-3. **Révocation Instantanée** : Le superviseur peut révoquer un accès à tout instant via un simple clic (`wg set wg0 peer <PubKey> remove`), rompant le tunnel en moins de 10 millisecondes.
+2. **Attribution automatique d'IP** : Le relais valide le format de la clé Curve25519 (32 octets) et réserve la prochaine adresse disponible dans `10.10.0.0/24`.
+3. **Isolation et ZTNA** : Dès que l'inscription dans `wg0` est effectuée, le client n'a accès qu'à son adresse propre sans routage inter-pairs.
 
 ---
 
@@ -112,7 +104,7 @@ Si un tiers ou un analyste tente de décompiler ou d'inspecter `CrazyPing.exe` (
 3. **Les plages d'adresses IP des serveurs de jeu** : Les listes de sous-réseaux AWS GameLift, Riot Direct, Valve SDR.
 
 ### Ce qui est protégé et invulnérable :
-1. **Aucun secret d'infrastructure** : Le binaire client ne contient aucune clé d'accès SSH, aucun mot de passe root, et aucun token administrateur. Le token d'administration `admin.key` n'est présent que sur la station de supervision.
+1. **Aucun secret d'infrastructure** : Le binaire client ne contient aucune clé d'accès SSH, aucun mot de passe root, et aucun secret serveur. Toutes les opérations d'orchestration s'exécutent en local sur l'hôte utilisateur.
 2. **Intégrité de l'hôte Linux** : Les ports SSH (`22`) sont protégés par clé asymétrique RSA 4096-bit / Ed25519 (authentification par mot de passe désactivée). La surface d'exposition UDP (ports WireGuard et API relais) est imperméable à l'exécution de code à distance.
 3. **Absence de fuite de données utilisateurs** : L'architecture ne conserve aucune donnée nominative ou télémétrique intrusive sur disque.
 
