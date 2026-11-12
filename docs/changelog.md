@@ -6,6 +6,27 @@ La numérotation des versions respecte les principes du **Semantic Versioning (S
 
 ---
 
+## [1.4.4] - 2026-11-11
+
+### Optimisation Transit, Résilience Réseau & Audit
+- **Résolution Définitive du Trou Noir MTU (TCP MSS Clamping)** :
+  - Intégration de la règle de clamp dynamique `TCPMSS --clamp-mss-to-pmtu` (MSS 1340) sur la passerelle Linux (Oracle Cloud San José).
+  - Élimination des pertes de trames TLS/HTTPS sur le câble sous-marin Honotua pour le transit web complet et les flux cloud.
+- **Routage Intégral sans Verrouillage WFP (VPN Global USA)** :
+  - Transition de la directive globale vers la partition duale canonique `0.0.0.0/1, 128.0.0.0/1, 10.10.0.0/24`.
+  - Capture intégrale du trafic Internet sans déclenchement du filtre destructeur WFP sur les adaptateurs physiques locaux.
+- **Fiabilisation du Disjoncteur Réseau & Double Sonde (Fail-Open)** :
+  - Période de grâce étendue à 15 secondes au démarrage du tunnel avec seuil de tolérance porté à 12 secondes.
+  - Double émission des sondes de télémétrie sur l'interface publique (`:4141`) et sur la passerelle interne (`10.10.0.1:4141`).
+- **Gestion du Cycle de Vie Fenêtre & Anti-Veille** :
+  - Bascule de l'extinction applicative de `pagehide` vers `beforeunload` afin d'éviter toute coupure lors de la minimisation dans la barre des tâches.
+  - Ajout des drapeaux Chromium anti-sommeil (`--disable-background-timer-throttling`, `--disable-backgrounding-occluded-windows`, `--disable-renderer-backgrounding`).
+- **Pérennisation Pare-feu & Audit Superviseur** :
+  - Ajout automatique de la règle entrante `CrazyPing-ICMP-In` pour le sous-réseau `10.10.0.0/24`, restaurant les réponses d'audit et la mesure de conformité MTU 1380.
+  - Ajout du bouton « Copier le rapport » dans le panneau d'audit du superviseur d'infrastructure.
+
+---
+
 ## [1.4.3] - 2026-11-03
 
 ### Amélioration du Déploiement & Expérience Utilisateur

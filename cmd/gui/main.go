@@ -18,12 +18,14 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"crazyping/pkg/protocol"
@@ -40,7 +42,7 @@ var (
 )
 
 const (
-	AppVersion = "1.4.3"
+	AppVersion = "1.4.4"
 	GitHubRepo = "Cioq987/CrazyPing"
 	wgExePath  = `C:\Program Files\WireGuard\wireguard.exe`
 )
@@ -231,6 +233,8 @@ type LiveMetrics struct {
 	IsAdmin          bool     `json:"isAdmin"`
 	Logs             []string `json:"logs"`
 	lastRtt          float64
+	lastPongUnix     int64
+	tunnelStartedUnix int64
 }
 
 func isWireGuardInstalled() bool {
@@ -298,6 +302,8 @@ func (m *LiveMetrics) startTunnel(confNameOrPath string) error {
 	m.TunnelActive = true
 	m.ActiveConf = tunnelName
 	m.mu.Unlock()
+	atomic.StoreInt64(&m.lastPongUnix, time.Now().Unix())
+	atomic.StoreInt64(&m.tunnelStartedUnix, time.Now().Unix())
 
 	m.AppendLog(fmt.Sprintf("Optimisation active sur câble Honotua -> %s", tunnelName))
 	return nil
@@ -305,6 +311,18 @@ func (m *LiveMetrics) startTunnel(confNameOrPath string) error {
 
 // stopCurrentTunnels arrête proprement tous les tunnels gérés par CrazyPing
 func (m *LiveMetrics) stopCurrentTunnels() {
+	cleanStartupTunnels()
+	if m != nil {
+		m.mu.Lock()
+		m.TunnelActive = false
+		m.AutoTriggered = false
+		m.mu.Unlock()
+		m.AppendLog("Tunnel Wintun arrêté — Réseau standard restauré")
+	}
+}
+
+// cleanStartupTunnels purge immédiatement tout adaptateur et service Wintun orphelin
+func cleanStartupTunnels() {
 	tunnels := []string{
 		"CrazyPing-GlobalVPN", "CrazyPing-GlobalVPN.local",
 		"CrazyPing-MistfallHunter", "CrazyPing-MistfallHunter.local",
@@ -318,11 +336,20 @@ func (m *LiveMetrics) stopCurrentTunnels() {
 		hideWindow(cmd)
 		_ = cmd.Run()
 	}
-	m.mu.Lock()
-	m.TunnelActive = false
-	m.AutoTriggered = false
-	m.mu.Unlock()
-	m.AppendLog("Tunnel Wintun arrêté — Réseau normal restauré")
+}
+
+// ensureFirewallRules configure la règle entrante pour autoriser les sondes d'audit ICMP (Honotua / MTU)
+// restreintes exclusivement au sous-réseau privé WireGuard 10.10.0.0/24
+func ensureFirewallRules() {
+	cmd := exec.Command("netsh", "advfirewall", "firewall", "add", "rule",
+		"name=CrazyPing-ICMP-In",
+		"dir=in",
+		"action=allow",
+		"protocol=icmpv4:8,any",
+		"remoteip=10.10.0.0/24",
+	)
+	hideWindow(cmd)
+	_ = cmd.Run()
 }
 
 func stringsTrimSuffix(s, suffix string) string {
@@ -412,7 +439,7 @@ MTU = 1380
 [Peer]
 PublicKey = 5dRNSNB9hA8qxA00mYSXU97lFG/s3yyNGwUyhKKw8Cw=
 Endpoint = 146.235.218.190:51820
-AllowedIPs = 52.88.0.0/15, 52.10.0.0/15, 52.24.0.0/14, 52.32.0.0/11, 54.68.0.0/14, 54.148.0.0/15, 54.184.0.0/13, 54.200.0.0/13, 54.212.0.0/14, 54.218.0.0/15, 54.244.0.0/15, 34.208.0.0/12, 35.160.0.0/13, 44.224.0.0/11, 199.255.40.0/22, 199.192.112.0/22, 205.185.192.0/20
+AllowedIPs = 10.10.0.0/24, 52.88.0.0/15, 52.10.0.0/15, 52.24.0.0/14, 52.32.0.0/11, 54.68.0.0/14, 54.148.0.0/15, 54.184.0.0/13, 54.200.0.0/13, 54.212.0.0/14, 54.218.0.0/15, 54.244.0.0/15, 34.208.0.0/12, 35.160.0.0/13, 44.224.0.0/11, 199.255.40.0/22, 199.192.112.0/22, 205.185.192.0/20
 PersistentKeepalive = 15
 `
 	mistfallTemplate := `[Interface]
@@ -423,7 +450,7 @@ MTU = 1380
 [Peer]
 PublicKey = 5dRNSNB9hA8qxA00mYSXU97lFG/s3yyNGwUyhKKw8Cw=
 Endpoint = 146.235.218.190:51820
-AllowedIPs = 155.133.224.0/19, 155.133.248.0/21, 162.254.192.0/19, 162.254.194.0/23, 52.88.0.0/15, 52.10.0.0/15, 52.24.0.0/14, 52.32.0.0/11, 54.68.0.0/14, 54.148.0.0/15, 54.184.0.0/13, 54.200.0.0/13, 54.212.0.0/14, 54.218.0.0/15, 54.244.0.0/15, 34.208.0.0/12, 35.160.0.0/13, 44.224.0.0/11, 54.153.0.0/16, 54.183.0.0/16, 54.193.0.0/16, 54.215.0.0/16, 54.219.0.0/16, 54.241.0.0/16, 52.8.0.0/14, 52.52.0.0/15, 101.32.0.0/16, 129.226.0.0/16, 43.128.0.0/16
+AllowedIPs = 10.10.0.0/24, 166.117.0.0/16, 15.197.0.0/16, 75.2.0.0/16, 99.83.0.0/16, 18.208.0.0/13, 18.155.0.0/16, 155.133.224.0/19, 155.133.248.0/21, 162.254.192.0/19, 162.254.194.0/23, 52.88.0.0/15, 52.10.0.0/15, 52.24.0.0/14, 52.32.0.0/11, 54.68.0.0/14, 54.148.0.0/15, 54.184.0.0/13, 54.200.0.0/13, 54.212.0.0/14, 54.218.0.0/15, 54.244.0.0/15, 34.208.0.0/12, 35.160.0.0/13, 44.224.0.0/11, 54.153.0.0/16, 54.183.0.0/16, 54.193.0.0/16, 54.215.0.0/16, 54.219.0.0/16, 54.241.0.0/16, 52.8.0.0/14, 52.52.0.0/15, 101.32.0.0/16, 129.226.0.0/16, 43.128.0.0/16
 PersistentKeepalive = 15
 `
 	valorantTemplate := `[Interface]
@@ -434,7 +461,7 @@ MTU = 1380
 [Peer]
 PublicKey = 5dRNSNB9hA8qxA00mYSXU97lFG/s3yyNGwUyhKKw8Cw=
 Endpoint = 146.235.218.190:51820
-AllowedIPs = 104.160.128.0/19, 162.249.72.0/22, 192.207.0.0/17, 66.23.16.0/20, 64.224.0.0/18
+AllowedIPs = 10.10.0.0/24, 104.160.128.0/19, 162.249.72.0/22, 192.207.0.0/17, 66.23.16.0/20, 64.224.0.0/18
 PersistentKeepalive = 15
 `
 	lolTemplate := `[Interface]
@@ -445,7 +472,7 @@ MTU = 1380
 [Peer]
 PublicKey = 5dRNSNB9hA8qxA00mYSXU97lFG/s3yyNGwUyhKKw8Cw=
 Endpoint = 146.235.218.190:51820
-AllowedIPs = 104.160.128.0/19, 162.249.72.0/22, 192.64.174.0/23, 192.207.0.0/17, 66.23.16.0/20, 64.224.0.0/18
+AllowedIPs = 10.10.0.0/24, 104.160.128.0/19, 162.249.72.0/22, 192.64.174.0/23, 192.207.0.0/17, 66.23.16.0/20, 64.224.0.0/18
 PersistentKeepalive = 15
 `
 	overwatchTemplate := `[Interface]
@@ -456,7 +483,7 @@ MTU = 1380
 [Peer]
 PublicKey = 5dRNSNB9hA8qxA00mYSXU97lFG/s3yyNGwUyhKKw8Cw=
 Endpoint = 146.235.218.190:51820
-AllowedIPs = 24.105.0.0/18, 137.221.64.0/18, 37.244.0.0/18, 5.42.160.0/20, 66.40.176.0/20, 158.115.192.0/18, 34.94.0.0/16, 35.235.0.0/16, 35.236.0.0/16
+AllowedIPs = 10.10.0.0/24, 24.105.0.0/18, 137.221.64.0/18, 37.244.0.0/18, 5.42.160.0/20, 66.40.176.0/20, 158.115.192.0/18, 34.94.0.0/16, 35.235.0.0/16, 35.236.0.0/16
 PersistentKeepalive = 15
 `
 	globalVpnTemplate := `[Interface]
@@ -468,7 +495,7 @@ MTU = 1380
 [Peer]
 PublicKey = 5dRNSNB9hA8qxA00mYSXU97lFG/s3yyNGwUyhKKw8Cw=
 Endpoint = 146.235.218.190:51820
-AllowedIPs = 0.0.0.0/0
+AllowedIPs = 0.0.0.0/1, 128.0.0.0/1, 10.10.0.0/24
 PersistentKeepalive = 15
 `
 	_ = os.WriteFile(filepath.Join(exeDir, "CrazyPing-Fortnite.local.conf"), []byte(fmt.Sprintf(fortniteTemplate, privKey, allocatedIP)), 0600)
@@ -615,6 +642,21 @@ func persistAdminToken(tok string, exeDir string) {
 }
 
 func main() {
+	// Purge proactive au démarrage de tout résidu de tunnel Wintun suite à un crash antérieur
+	cleanStartupTunnels()
+
+	// Configuration proactive des autorisations pare-feu pour le sous-réseau d'audit WireGuard
+	ensureFirewallRules()
+
+	// Capture des signaux d'interruption OS pour garantir un démontage propre de Wintun
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		<-sigChan
+		cleanStartupTunnels()
+		os.Exit(0)
+	}()
+
 	lockHandle, isOnlyInstance := acquireSingleInstanceLock("CrazyPing_App_Instance")
 	if !isOnlyInstance {
 		// Une instance de CrazyPing est déjà active sur le système
@@ -1102,6 +1144,13 @@ func main() {
 		_, _ = w.Write(data)
 	})
 
+	mux.HandleFunc("/api/network/reset", func(w http.ResponseWriter, r *http.Request) {
+		metrics.AppendLog("[Sécurité Réseau] Réinitialisation d'urgence déclenchée.")
+		metrics.stopCurrentTunnels()
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	})
+
 	mux.HandleFunc("/api/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
@@ -1157,8 +1206,49 @@ func startVpsPinger(host string, port int, m *LiveMetrics) {
 	_ = conn.SetReadBuffer(2 * 1024 * 1024)
 	_ = conn.SetWriteBuffer(2 * 1024 * 1024)
 
+	// Connexion de secours interne au tunnel WireGuard (10.10.0.1:4141)
+	tunnelAddr, _ := net.ResolveUDPAddr("udp", fmt.Sprintf("10.10.0.1:%d", port))
+	connTunnel, _ := net.DialUDP("udp", nil, tunnelAddr)
+	if connTunnel != nil {
+		defer connTunnel.Close()
+		_ = connTunnel.SetReadBuffer(1024 * 1024)
+		_ = connTunnel.SetWriteBuffer(1024 * 1024)
+	}
+
 	var seq uint32
 
+	handlePong := func(buf []byte, n int) {
+		pkt, err := protocol.Decode(buf[:n])
+		if err != nil || pkt.Type != protocol.TypePong {
+			return
+		}
+
+		rttNs := time.Now().UnixNano() - pkt.Timestamp
+		rttMs := float64(rttNs) / 1e6
+
+		atomic.StoreInt64(&m.lastPongUnix, time.Now().Unix())
+
+		m.mu.Lock()
+		m.IsConnected = true
+		m.CurrentRtt = rttMs
+		m.PacketsRcvd++
+		if rttMs < m.MinRtt {
+			m.MinRtt = rttMs
+		}
+		if rttMs > m.MaxRtt {
+			m.MaxRtt = rttMs
+		}
+		if m.lastRtt > 0 {
+			diff := math.Abs(rttMs - m.lastRtt)
+			m.Jitter = (m.Jitter * 0.9) + (diff * 0.1)
+		}
+		m.lastRtt = rttMs
+		m.DuplicatesSaved = m.PacketsSent - m.PacketsRcvd
+		m.TrafficFormatted = fmt.Sprintf("%.1f Ko", float64(m.PacketsRcvd*128)/1024.0)
+		m.mu.Unlock()
+	}
+
+	// Écouteur sur l'interface physique
 	go func() {
 		buf := make([]byte, 2048)
 		for {
@@ -1166,35 +1256,23 @@ func startVpsPinger(host string, port int, m *LiveMetrics) {
 			if err != nil {
 				return
 			}
-
-			pkt, err := protocol.Decode(buf[:n])
-			if err != nil || pkt.Type != protocol.TypePong {
-				continue
-			}
-
-			rttNs := time.Now().UnixNano() - pkt.Timestamp
-			rttMs := float64(rttNs) / 1e6
-
-			m.mu.Lock()
-			m.IsConnected = true
-			m.CurrentRtt = rttMs
-			m.PacketsRcvd++
-			if rttMs < m.MinRtt {
-				m.MinRtt = rttMs
-			}
-			if rttMs > m.MaxRtt {
-				m.MaxRtt = rttMs
-			}
-			if m.lastRtt > 0 {
-				diff := math.Abs(rttMs - m.lastRtt)
-				m.Jitter = (m.Jitter * 0.9) + (diff * 0.1)
-			}
-			m.lastRtt = rttMs
-			m.DuplicatesSaved = m.PacketsSent - m.PacketsRcvd
-			m.TrafficFormatted = fmt.Sprintf("%.1f Ko", float64(m.PacketsRcvd*128)/1024.0)
-			m.mu.Unlock()
+			handlePong(buf, n)
 		}
 	}()
+
+	// Écouteur sur le chemin interne WireGuard
+	if connTunnel != nil {
+		go func() {
+			buf := make([]byte, 2048)
+			for {
+				n, err := connTunnel.Read(buf)
+				if err != nil {
+					return
+				}
+				handlePong(buf, n)
+			}
+		}()
+	}
 
 	ticker := time.NewTicker(400 * time.Millisecond)
 	for range ticker.C {
@@ -1206,19 +1284,47 @@ func startVpsPinger(host string, port int, m *LiveMetrics) {
 
 		m.mu.Lock()
 		m.PacketsSent++
+		tunnelActive := m.TunnelActive
 		m.mu.Unlock()
+
+		if tunnelActive && connTunnel != nil {
+			_, _ = connTunnel.Write(enc)
+		}
+
+		// Disjoncteur Réseau d'Urgence (Circuit Breaker / Fail-Open) :
+		// Si un tunnel est actif et que le relais ne répond plus pendant plus de 12 secondes consécutives
+		// (après une période de grâce de 15s lors du montage initial de l'adaptateur Wintun),
+		// coupure d'urgence immédiate pour restaurer la connexion Internet physique de l'utilisateur.
+		if tunnelActive {
+			startedAt := atomic.LoadInt64(&m.tunnelStartedUnix)
+			now := time.Now().Unix()
+			if startedAt > 0 && now-startedAt > 15 {
+				lastPong := atomic.LoadInt64(&m.lastPongUnix)
+				if lastPong > 0 && now-lastPong >= 12 {
+					m.AppendLog("[Sécurité Réseau] ⚠️ Perte de liaison relais (> 12s). Coupure d'urgence du tunnel pour rétablir votre connexion Internet.")
+					m.stopCurrentTunnels()
+				}
+			}
+		}
 	}
 }
 
 func openNativeWindow(url string) {
 	if runtime.GOOS == "windows" {
+		browserFlags := []string{
+			fmt.Sprintf("--app=%s", url),
+			"--window-size=980,720",
+			"--disable-background-timer-throttling",
+			"--disable-backgrounding-occluded-windows",
+			"--disable-renderer-backgrounding",
+		}
 		edgePaths := []string{
 			`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`,
 			`C:\Program Files\Microsoft\Edge\Application\msedge.exe`,
 		}
 		for _, p := range edgePaths {
 			if _, err := os.Stat(p); err == nil {
-				cmd := exec.Command(p, fmt.Sprintf("--app=%s", url), "--window-size=980,720")
+				cmd := exec.Command(p, browserFlags...)
 				if err := cmd.Start(); err == nil {
 					browserMu.Lock()
 					activeBrowserCmd = cmd
@@ -1230,7 +1336,7 @@ func openNativeWindow(url string) {
 
 		chromePath := `C:\Program Files\Google\Chrome\Application\chrome.exe`
 		if _, err := os.Stat(chromePath); err == nil {
-			cmd := exec.Command(chromePath, fmt.Sprintf("--app=%s", url), "--window-size=980,720")
+			cmd := exec.Command(chromePath, browserFlags...)
 			if err := cmd.Start(); err == nil {
 				browserMu.Lock()
 				activeBrowserCmd = cmd

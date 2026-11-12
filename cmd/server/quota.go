@@ -72,6 +72,12 @@ func initQuotaSubsystem() {
 		_ = exec.Command("sudo", "iptables", "-I", "FORWARD", "1", "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT").Run()
 	}
 
+	// 0.bis Clamping TCP MSS à 1340 pour éliminer les trous noirs MTU sur le câble Honotua
+	cmdMssCheck := exec.Command("sudo", "iptables", "-t", "mangle", "-C", "FORWARD", "-p", "tcp", "--tcp-flags", "SYN,RST", "SYN", "-j", "TCPMSS", "--clamp-mss-to-pmtu")
+	if cmdMssCheck.Run() != nil {
+		_ = exec.Command("sudo", "iptables", "-t", "mangle", "-A", "FORWARD", "-p", "tcp", "--tcp-flags", "SYN,RST", "SYN", "-j", "TCPMSS", "--clamp-mss-to-pmtu").Run()
+	}
+
 	// Création du set ipset pour les jeux s'il n'existe pas
 	_ = exec.Command("sudo", "ipset", "create", "cp_game_cidrs", "hash:net", "-exist").Run()
 	for _, cidr := range GameCIDRs {

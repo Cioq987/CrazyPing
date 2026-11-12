@@ -2,7 +2,7 @@
 ; Génère CrazyPing-Setup.exe avec privilèges d'élévation UAC
 
 #define MyAppName "CrazyPing"
-#define MyAppVersion "1.4.3"
+#define MyAppVersion "1.4.4"
 #define MyAppPublisher "CrazyPing Project"
 #define MyAppURL "https://github.com"
 #define MyAppExeName "CrazyPing.exe"
@@ -45,6 +45,7 @@ Source: "..\CrazyPing-Valorant.conf"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\CrazyPing-LoL.conf"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\CrazyPing-Overwatch.conf"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\CrazyPing-GlobalVPN.conf"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\reset-network.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "wireguard-amd64-1.1.1.msi"; DestDir: "{app}"; DestName: "wireguard-installer.msi"; Flags: ignoreversion
 Source: "wireguard-amd64-1.1.1.msi"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: not IsWireGuardInstalled
 Source: "..\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs
